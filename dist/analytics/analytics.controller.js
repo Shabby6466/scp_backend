@@ -1,0 +1,90 @@
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AnalyticsController = void 0;
+const common_1 = require("@nestjs/common");
+const client_1 = require("@prisma/client");
+const jwt_auth_guard_js_1 = require("../auth/guards/jwt-auth.guard.js");
+const roles_guard_js_1 = require("../auth/guards/roles.guard.js");
+const roles_decorator_js_1 = require("../auth/decorators/roles.decorator.js");
+const current_user_decorator_js_1 = require("../auth/decorators/current-user.decorator.js");
+const analytics_service_js_1 = require("./analytics.service.js");
+const forms_analytics_query_dto_js_1 = require("./dto/forms-analytics-query.dto.js");
+let AnalyticsController = class AnalyticsController {
+    analytics;
+    constructor(analytics) {
+        this.analytics = analytics;
+    }
+    submissions(q, user) {
+        return this.analytics.submissions(user, new Date(q.from), new Date(q.to), q.bucket, q.documentTypeId);
+    }
+    byUploader(q, user) {
+        return this.analytics.byUploader(user, new Date(q.from), new Date(q.to), q.documentTypeId);
+    }
+    expiryByType(documentTypeId, user) {
+        return this.analytics.expiryByType(user, documentTypeId);
+    }
+    getComplianceSummary(user) {
+        return this.analytics.getComplianceSummary(user);
+    }
+    getPendingActions(user) {
+        return this.analytics.getPendingActions(user);
+    }
+};
+exports.AnalyticsController = AnalyticsController;
+__decorate([
+    (0, common_1.Get)('forms/submissions'),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [forms_analytics_query_dto_js_1.FormsAnalyticsQueryDto, Object]),
+    __metadata("design:returntype", void 0)
+], AnalyticsController.prototype, "submissions", null);
+__decorate([
+    (0, common_1.Get)('forms/by-uploader'),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [forms_analytics_query_dto_js_1.FormsAnalyticsQueryDto, Object]),
+    __metadata("design:returntype", void 0)
+], AnalyticsController.prototype, "byUploader", null);
+__decorate([
+    (0, common_1.Get)('forms/expiry-by-type'),
+    __param(0, (0, common_1.Query)('documentTypeId')),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], AnalyticsController.prototype, "expiryByType", null);
+__decorate([
+    (0, common_1.Get)('compliance/summary'),
+    __param(0, (0, current_user_decorator_js_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], AnalyticsController.prototype, "getComplianceSummary", null);
+__decorate([
+    (0, common_1.Get)('compliance/pending-actions'),
+    __param(0, (0, current_user_decorator_js_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], AnalyticsController.prototype, "getPendingActions", null);
+exports.AnalyticsController = AnalyticsController = __decorate([
+    (0, common_1.Controller)('analytics'),
+    (0, common_1.UseGuards)(jwt_auth_guard_js_1.JwtAuthGuard, roles_guard_js_1.RolesGuard),
+    (0, roles_decorator_js_1.Roles)(client_1.UserRole.ADMIN, client_1.UserRole.DIRECTOR, client_1.UserRole.BRANCH_DIRECTOR, client_1.UserRole.TEACHER),
+    __metadata("design:paramtypes", [analytics_service_js_1.AnalyticsService])
+], AnalyticsController);
+//# sourceMappingURL=analytics.controller.js.map

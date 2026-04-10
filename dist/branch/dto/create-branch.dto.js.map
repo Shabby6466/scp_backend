@@ -1,0 +1,1 @@
+{"version":3,"file":"create-branch.dto.js","sourceRoot":"","sources":["../../../src/branch/dto/create-branch.dto.ts"],"names":[],"mappings":";;;;;;;;;;;;AAAA,qDAAkE;AAElE,MAAa,eAAe;IAG1B,IAAI,CAAU;IAMd,oBAAoB,CAAU;CAC/B;AAVD,0CAUC;AAPC;IAFC,IAAA,0BAAQ,GAAE;IACV,IAAA,2BAAS,EAAC,CAAC,CAAC;;6CACC;AAMd;IAHC,IAAA,4BAAU,GAAE;IACZ,IAAA,0BAAQ,GAAE;IACV,IAAA,2BAAS,EAAC,CAAC,CAAC;;6DACiB"}
