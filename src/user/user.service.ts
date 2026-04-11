@@ -399,7 +399,7 @@ export class UserService {
       ],
     };
 
-    const where: Prisma.UserWhereInput =
+    const scopedWhere: Prisma.UserWhereInput =
       currentUser.role === UserRole.BRANCH_DIRECTOR && currentUser.branchId
         ? {
             AND: [
@@ -416,6 +416,14 @@ export class UserService {
             ],
           }
         : schoolScope;
+
+    const dtoExtra = this.searchDtoFilterParts(dto, {
+      includeSchoolIdFilter: false,
+    });
+    const where: Prisma.UserWhereInput =
+      dtoExtra.length > 0
+        ? { AND: [scopedWhere, ...dtoExtra] }
+        : scopedWhere;
 
     return this.paginate(this.prisma.user, {
       where,
@@ -435,23 +443,109 @@ export class UserService {
     }, dto);
   }
 
+  /**
+   * Extra `WHERE` fragments from query params (also used by `listAll`).
+   * When `includeSchoolIdFilter` is false (school list route), path already scopes school.
+   */
+  private searchDtoFilterParts(
+    dto: SearchUserDto,
+    options: { includeSchoolIdFilter?: boolean } = {},
+  ): Prisma.UserWhereInput[] {
+    const includeSchoolId = options.includeSchoolIdFilter !== false;
+    const parts: Prisma.UserWhereInput[] = [];
+
+    if (dto.query?.trim()) {
+      const q = dto.query.trim();
+      parts.push({
+        OR: [
+          { name: { contains: q, mode: 'insensitive' } },
+          { email: { contains: q, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    if (dto.role) {
+      parts.push({ role: dto.role });
+    }
+
+    if (includeSchoolId && dto.schoolId) {
+      parts.push({
+        OR: [
+          { schoolId: dto.schoolId },
+          { branch: { schoolId: dto.schoolId } },
+        ],
+      });
+    }
+
+    if (dto.branchId) {
+      parts.push({ branchId: dto.branchId });
+    }
+
+    if (dto.staffPosition) {
+      parts.push({ staffPosition: dto.staffPosition });
+    }
+
+    if (dto.staffClearanceActive !== undefined) {
+      parts.push({ staffClearanceActive: dto.staffClearanceActive });
+    }
+
+    return parts;
+  }
+
+  /**
+   * Platform-wide user listing for admins. Applies `SearchUserDto` filters (role, query,
+   * schoolId, branchId, etc.) — previously missing `where` caused `/users?role=STUDENT` to
+   * return arbitrary users and downstream APIs (e.g. student-parent) to 404.
+   */
   async listAll(dto: SearchUserDto = {}) {
-    return this.paginate(this.prisma.user, {
-      orderBy: [{ role: 'desc' }, { email: 'asc' }],
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        schoolId: true,
-        branchId: true,
-        createdAt: true,
-        staffPosition: true,
-        staffClearanceActive: true,
-        school: { select: { id: true, name: true } },
-        branch: { select: { id: true, name: true, schoolId: true } },
+    const parts = this.searchDtoFilterParts(dto, { includeSchoolIdFilter: true });
+    const where: Prisma.UserWhereInput =
+      parts.length > 0 ? { AND: parts } : {};
+
+    return this.paginate(
+      this.prisma.user,
+      {
+        where,
+        orderBy: [{ role: 'desc' }, { email: 'asc' }],
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          schoolId: true,
+          branchId: true,
+          createdAt: true,
+          staffPosition: true,
+          staffClearanceActive: true,
+          school: { select: { id: true, name: true } },
+          branch: { select: { id: true, name: true, schoolId: true } },
+        },
       },
-    }, dto);
+      dto,
+    );
+  }
+
+  /**
+   * `GET /users` — platform admins see all users; school directors / branch directors
+   * are scoped to their school (same rules as `GET /schools/:schoolId/users`).
+   */
+  async listUsersForCaller(
+    dto: SearchUserDto,
+    user: { role: UserRole; schoolId: string | null; branchId: string | null },
+  ) {
+    if (user.role === UserRole.ADMIN) {
+      return this.listAll(dto);
+    }
+    if (user.role !== UserRole.DIRECTOR && user.role !== UserRole.BRANCH_DIRECTOR) {
+      throw new ForbiddenException('Insufficient permissions to list users');
+    }
+    if (!user.schoolId) {
+      throw new ForbiddenException('Account has no school scope');
+    }
+    if (dto.schoolId && dto.schoolId !== user.schoolId) {
+      throw new ForbiddenException('Cannot list users for another school');
+    }
+    return this.listBySchool(user.schoolId, user, dto);
   }
 
   async searchUsers(
@@ -552,6 +646,52 @@ export class UserService {
         lastPage: Math.ceil(total / limit),
       },
     };
+  }
+
+  async findOneById(
+    targetId: string,
+    actor: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: targetId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        schoolId: true,
+        branchId: true,
+        phone: true,
+        staffPosition: true,
+        staffClearanceActive: true,
+        createdAt: true,
+        branch: { select: { id: true, name: true, schoolId: true } },
+        school: { select: { id: true, name: true } },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (actor.role !== UserRole.ADMIN && actor.id !== targetId) {
+      const isSuperior = await this.isSuperiorOf(actor, {
+        id: user.id,
+        role: user.role,
+        schoolId: user.schoolId,
+        branchId: user.branchId,
+      });
+      if (!isSuperior) {
+        throw new ForbiddenException('Cannot access this user');
+      }
+    }
+
+    return user;
   }
 
   async getUserDetail(

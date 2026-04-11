@@ -28,14 +28,17 @@ let UserController = class UserController {
     constructor(userService) {
         this.userService = userService;
     }
-    listAll(dto) {
-        return this.userService.listAll(dto);
+    listUsers(dto, user) {
+        return this.userService.listUsersForCaller(dto, user);
     }
     searchUsers(dto, user) {
         return this.userService.searchUsers(dto, user);
     }
     getUserDetail(id, user) {
         return this.userService.getUserDetail(id, user);
+    }
+    findOneById(id, user) {
+        return this.userService.findOneById(id, user);
     }
     createUserGlobal(dto, user) {
         return this.userService.createUser(dto, user);
@@ -60,12 +63,13 @@ exports.UserController = UserController;
 __decorate([
     (0, common_1.Get)('users'),
     (0, common_1.UseGuards)(roles_guard_js_1.RolesGuard),
-    (0, roles_decorator_js_1.Roles)(client_1.UserRole.ADMIN),
+    (0, roles_decorator_js_1.Roles)(client_1.UserRole.ADMIN, client_1.UserRole.DIRECTOR, client_1.UserRole.BRANCH_DIRECTOR),
     __param(0, (0, common_1.Query)()),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [search_user_dto_js_1.SearchUserDto]),
+    __metadata("design:paramtypes", [search_user_dto_js_1.SearchUserDto, Object]),
     __metadata("design:returntype", void 0)
-], UserController.prototype, "listAll", null);
+], UserController.prototype, "listUsers", null);
 __decorate([
     (0, common_1.Get)('users/search'),
     (0, common_1.UseGuards)(roles_guard_js_1.RolesGuard),
@@ -86,6 +90,16 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], UserController.prototype, "getUserDetail", null);
+__decorate([
+    (0, common_1.Get)('users/:id'),
+    (0, common_1.UseGuards)(roles_guard_js_1.RolesGuard),
+    (0, roles_decorator_js_1.Roles)(client_1.UserRole.ADMIN, client_1.UserRole.DIRECTOR, client_1.UserRole.BRANCH_DIRECTOR, client_1.UserRole.TEACHER, client_1.UserRole.STUDENT, client_1.UserRole.PARENT),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], UserController.prototype, "findOneById", null);
 __decorate([
     (0, common_1.Post)('users'),
     (0, common_1.UseGuards)(roles_guard_js_1.RolesGuard),

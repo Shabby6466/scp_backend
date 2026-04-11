@@ -14,11 +14,15 @@ const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const prisma_service_js_1 = require("../prisma/prisma.service.js");
 const school_scope_util_js_1 = require("../auth/school-scope.util.js");
+const school_service_js_1 = require("../school/school.service.js");
+const branch_dashboard_service_js_1 = require("../branch/branch-dashboard.service.js");
 exports.ANALYTICS_NEAR_EXPIRY_DAYS = 30;
 let AnalyticsService = class AnalyticsService {
     prisma;
-    constructor(prisma) {
+    schoolService;
+    constructor(prisma, schoolService) {
         this.prisma = prisma;
+        this.schoolService = schoolService;
     }
     resolveScope(user) {
         if (user.role === client_1.UserRole.ADMIN) {
@@ -269,10 +273,170 @@ let AnalyticsService = class AnalyticsService {
             atRiskStaff,
         };
     }
+    assertSchoolScope(user, schoolId, branchId) {
+        if (user.role === client_1.UserRole.ADMIN) {
+            if (branchId)
+                return { branchId };
+            if (schoolId)
+                return { schoolId };
+            throw new common_1.ForbiddenException('schoolId or branchId is required');
+        }
+        const scope = this.resolveScope(user);
+        if (scope.kind === 'school') {
+            if (schoolId && schoolId !== scope.schoolId) {
+                throw new common_1.ForbiddenException('Cannot access this school');
+            }
+            return { schoolId: scope.schoolId };
+        }
+        if (scope.kind === 'branch' || scope.kind === 'teacher') {
+            if (branchId && branchId !== scope.branchId) {
+                throw new common_1.ForbiddenException('Cannot access this branch');
+            }
+            return { branchId: scope.branchId };
+        }
+        if (scope.kind === 'global') {
+            throw new common_1.ForbiddenException('School scope required');
+        }
+        throw new common_1.ForbiddenException('Insufficient permissions');
+    }
+    async getComplianceStats(user, schoolId, branchId) {
+        const loc = this.assertSchoolScope(user, schoolId, branchId);
+        const effectiveUser = user.role === client_1.UserRole.ADMIN && schoolId && !branchId
+            ? {
+                ...user,
+                role: client_1.UserRole.DIRECTOR,
+                schoolId,
+                branchId: null,
+            }
+            : user;
+        const summary = await this.getComplianceSummary(effectiveUser);
+        const ownerWhere = 'schoolId' in loc
+            ? { branch: { schoolId: loc.schoolId } }
+            : { branchId: loc.branchId };
+        const now = new Date();
+        const nearEnd = new Date(now);
+        nearEnd.setDate(nearEnd.getDate() + branch_dashboard_service_js_1.NEAR_EXPIRY_DAYS);
+        const [expired, nearExpiry] = await Promise.all([
+            this.prisma.document.count({
+                where: {
+                    ownerUser: ownerWhere,
+                    expiresAt: { lt: now },
+                },
+            }),
+            this.prisma.document.count({
+                where: {
+                    ownerUser: ownerWhere,
+                    expiresAt: { gt: now, lte: nearEnd },
+                },
+            }),
+        ]);
+        const rate = summary.score;
+        return {
+            studentComplianceRate: rate,
+            teacherComplianceRate: rate,
+            student_compliance_rate: rate,
+            teacher_compliance_rate: rate,
+            totalExpired: expired,
+            total_expired: expired,
+            totalExpiringSoon: nearExpiry,
+            total_expiring_soon: nearExpiry,
+            score: summary.score,
+            totalRequired: summary.totalRequired,
+            verifiedCount: summary.verifiedCount,
+            pendingVerification: summary.pendingVerification,
+        };
+    }
+    async listExpiringDocuments(user, schoolId, branchId, days = branch_dashboard_service_js_1.NEAR_EXPIRY_DAYS, limit = 50) {
+        const loc = this.assertSchoolScope(user, schoolId, branchId);
+        const ownerWhere = 'schoolId' in loc
+            ? { branch: { schoolId: loc.schoolId } }
+            : { branchId: loc.branchId };
+        const now = new Date();
+        const until = new Date(now);
+        until.setDate(until.getDate() + Math.min(Math.max(days, 1), 365));
+        const safeLimit = Math.min(Math.max(limit, 1), 200);
+        return this.prisma.document.findMany({
+            where: {
+                ownerUser: ownerWhere,
+                expiresAt: { gt: now, lte: until },
+            },
+            include: {
+                documentType: { select: { id: true, name: true, targetRole: true } },
+                ownerUser: {
+                    select: { id: true, name: true, email: true, role: true },
+                },
+            },
+            orderBy: { expiresAt: 'asc' },
+            take: safeLimit,
+        });
+    }
+    async listExpiredDocuments(user, schoolId, branchId, limit = 50) {
+        const loc = this.assertSchoolScope(user, schoolId, branchId);
+        const ownerWhere = 'schoolId' in loc
+            ? { branch: { schoolId: loc.schoolId } }
+            : { branchId: loc.branchId };
+        const now = new Date();
+        const safeLimit = Math.min(Math.max(limit, 1), 200);
+        return this.prisma.document.findMany({
+            where: {
+                ownerUser: ownerWhere,
+                expiresAt: { lt: now },
+            },
+            include: {
+                documentType: { select: { id: true, name: true, targetRole: true } },
+                ownerUser: {
+                    select: { id: true, name: true, email: true, role: true },
+                },
+            },
+            orderBy: { expiresAt: 'desc' },
+            take: safeLimit,
+        });
+    }
+    async getSchoolDashboardAnalytics(user, schoolId) {
+        const sid = schoolId ?? user.schoolId;
+        if (!sid) {
+            throw new common_1.ForbiddenException('schoolId is required');
+        }
+        if (user.role !== client_1.UserRole.ADMIN) {
+            if (user.role === client_1.UserRole.DIRECTOR ||
+                user.role === client_1.UserRole.BRANCH_DIRECTOR) {
+                if (user.schoolId !== sid) {
+                    throw new common_1.ForbiddenException('Cannot access this school');
+                }
+            }
+            else {
+                throw new common_1.ForbiddenException('Insufficient permissions');
+            }
+        }
+        const summary = await this.schoolService.getDashboardSummary(sid, {
+            id: user.id,
+            role: user.role,
+            schoolId: user.schoolId,
+            branchId: user.branchId,
+        });
+        const documentCount = await this.prisma.document.count({
+            where: { ownerUser: { branch: { schoolId: sid } } },
+        });
+        return {
+            studentCount: summary.stats.studentCount,
+            teacherCount: summary.stats.teacherCount,
+            parentCount: summary.stats.parentCount,
+            documentCount,
+            counts: {
+                students: summary.stats.studentCount,
+                teachers: summary.stats.teacherCount,
+                parents: summary.stats.parentCount,
+                documents: documentCount,
+            },
+            expiringStaffCount: summary.stats.expiringDocs,
+            studentsWithoutDocs: summary.stats.pendingDocs,
+        };
+    }
 };
 exports.AnalyticsService = AnalyticsService;
 exports.AnalyticsService = AnalyticsService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_js_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
+        school_service_js_1.SchoolService])
 ], AnalyticsService);
 //# sourceMappingURL=analytics.service.js.map

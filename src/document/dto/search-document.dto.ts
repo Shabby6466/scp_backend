@@ -2,6 +2,7 @@ import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
 import { UserRole } from '@prisma/client';
 import { Transform } from 'class-transformer';
 
+/** Query params for `GET /documents/search` (includes CRM-style `status` + paging). */
 export class SearchDocumentDto {
   @IsOptional()
   @IsString()
@@ -27,4 +28,17 @@ export class SearchDocumentDto {
   @IsOptional()
   @IsEnum(UserRole)
   ownerRole?: UserRole;
+
+  /** e.g. `pending` → unverified, `approved` → verified */
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => parseInt(value, 10))
+  limit?: number;
+
+  @IsOptional()
+  @Transform(({ value }) => parseInt(value, 10))
+  offset?: number;
 }

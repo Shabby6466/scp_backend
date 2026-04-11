@@ -29,8 +29,8 @@ export declare class ComplianceCategoryController {
         updatedAt: Date;
         schoolId: string;
         createdAt: Date;
-        sortOrder: number;
         description: string | null;
+        sortOrder: number;
         createdById: string;
         slug: string;
         icon: string | null;
@@ -59,8 +59,8 @@ export declare class ComplianceCategoryController {
         updatedAt: Date;
         schoolId: string;
         createdAt: Date;
-        sortOrder: number;
         description: string | null;
+        sortOrder: number;
         createdById: string;
         slug: string;
         icon: string | null;
@@ -89,8 +89,8 @@ export declare class ComplianceCategoryController {
         updatedAt: Date;
         schoolId: string;
         createdAt: Date;
-        sortOrder: number;
         description: string | null;
+        sortOrder: number;
         createdById: string;
         slug: string;
         icon: string | null;
@@ -119,8 +119,8 @@ export declare class ComplianceCategoryController {
         updatedAt: Date;
         schoolId: string;
         createdAt: Date;
-        sortOrder: number;
         description: string | null;
+        sortOrder: number;
         createdById: string;
         slug: string;
         icon: string | null;
@@ -168,8 +168,8 @@ export declare class ComplianceCategoryController {
         updatedAt: Date;
         schoolId: string;
         createdAt: Date;
-        sortOrder: number;
         description: string | null;
+        sortOrder: number;
         createdById: string;
         slug: string;
         icon: string | null;

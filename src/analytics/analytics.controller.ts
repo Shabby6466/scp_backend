@@ -1,4 +1,11 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  DefaultValuePipe,
+  Get,
+  ParseIntPipe,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
@@ -79,5 +86,99 @@ export class AnalyticsController {
   @Get('compliance/pending-actions')
   getPendingActions(@CurrentUser() user: any) {
     return this.analytics.getPendingActions(user);
+  }
+
+  /** CRM / dashboard compatibility — aggregated compliance with expiring/expired counts. */
+  @Get('compliance/stats')
+  getComplianceStats(
+    @Query('schoolId') schoolId: string | undefined,
+    @Query('branchId') branchId: string | undefined,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.analytics.getComplianceStats(user, schoolId, branchId);
+  }
+
+  @Get('documents/expiring')
+  listExpiringDocuments(
+    @Query('schoolId') schoolId: string | undefined,
+    @Query('branchId') branchId: string | undefined,
+    @Query('days', new DefaultValuePipe(30), ParseIntPipe) days: number,
+    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.analytics.listExpiringDocuments(
+      user,
+      schoolId,
+      branchId,
+      days,
+      limit,
+    );
+  }
+
+  @Get('documents/expired')
+  listExpiredDocuments(
+    @Query('schoolId') schoolId: string | undefined,
+    @Query('branchId') branchId: string | undefined,
+    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.analytics.listExpiredDocuments(user, schoolId, branchId, limit);
+  }
+
+  /** Alias for older clients that called `GET /analytics/compliance?schoolId=` */
+  @Get('compliance')
+  getComplianceRoot(
+    @Query('schoolId') schoolId: string | undefined,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    const effectiveUser =
+      user.role === UserRole.ADMIN && schoolId
+        ? {
+            ...user,
+            role: UserRole.DIRECTOR,
+            schoolId,
+            branchId: null as string | null,
+          }
+        : user;
+    return this.analytics.getComplianceSummary(effectiveUser);
+  }
+
+  /** School-level dashboard metrics for CRM (counts, expiring staff, etc.). */
+  @Get('dashboard')
+  getSchoolDashboard(
+    @Query('schoolId') schoolId: string | undefined,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.analytics.getSchoolDashboardAnalytics(user, schoolId);
   }
 }

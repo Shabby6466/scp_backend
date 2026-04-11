@@ -326,7 +326,7 @@ let UserService = class UserService {
                 { role: client_1.UserRole.STUDENT, branch: { schoolId } },
             ],
         };
-        const where = currentUser.role === client_1.UserRole.BRANCH_DIRECTOR && currentUser.branchId
+        const scopedWhere = currentUser.role === client_1.UserRole.BRANCH_DIRECTOR && currentUser.branchId
             ? {
                 AND: [
                     schoolScope,
@@ -342,6 +342,12 @@ let UserService = class UserService {
                 ],
             }
             : schoolScope;
+        const dtoExtra = this.searchDtoFilterParts(dto, {
+            includeSchoolIdFilter: false,
+        });
+        const where = dtoExtra.length > 0
+            ? { AND: [scopedWhere, ...dtoExtra] }
+            : scopedWhere;
         return this.paginate(this.prisma.user, {
             where,
             orderBy: [{ role: 'desc' }, { email: 'asc' }],
@@ -359,8 +365,45 @@ let UserService = class UserService {
             },
         }, dto);
     }
+    searchDtoFilterParts(dto, options = {}) {
+        const includeSchoolId = options.includeSchoolIdFilter !== false;
+        const parts = [];
+        if (dto.query?.trim()) {
+            const q = dto.query.trim();
+            parts.push({
+                OR: [
+                    { name: { contains: q, mode: 'insensitive' } },
+                    { email: { contains: q, mode: 'insensitive' } },
+                ],
+            });
+        }
+        if (dto.role) {
+            parts.push({ role: dto.role });
+        }
+        if (includeSchoolId && dto.schoolId) {
+            parts.push({
+                OR: [
+                    { schoolId: dto.schoolId },
+                    { branch: { schoolId: dto.schoolId } },
+                ],
+            });
+        }
+        if (dto.branchId) {
+            parts.push({ branchId: dto.branchId });
+        }
+        if (dto.staffPosition) {
+            parts.push({ staffPosition: dto.staffPosition });
+        }
+        if (dto.staffClearanceActive !== undefined) {
+            parts.push({ staffClearanceActive: dto.staffClearanceActive });
+        }
+        return parts;
+    }
     async listAll(dto = {}) {
+        const parts = this.searchDtoFilterParts(dto, { includeSchoolIdFilter: true });
+        const where = parts.length > 0 ? { AND: parts } : {};
         return this.paginate(this.prisma.user, {
+            where,
             orderBy: [{ role: 'desc' }, { email: 'asc' }],
             select: {
                 id: true,
@@ -376,6 +419,21 @@ let UserService = class UserService {
                 branch: { select: { id: true, name: true, schoolId: true } },
             },
         }, dto);
+    }
+    async listUsersForCaller(dto, user) {
+        if (user.role === client_1.UserRole.ADMIN) {
+            return this.listAll(dto);
+        }
+        if (user.role !== client_1.UserRole.DIRECTOR && user.role !== client_1.UserRole.BRANCH_DIRECTOR) {
+            throw new common_1.ForbiddenException('Insufficient permissions to list users');
+        }
+        if (!user.schoolId) {
+            throw new common_1.ForbiddenException('Account has no school scope');
+        }
+        if (dto.schoolId && dto.schoolId !== user.schoolId) {
+            throw new common_1.ForbiddenException('Cannot list users for another school');
+        }
+        return this.listBySchool(user.schoolId, user, dto);
     }
     async searchUsers(dto, currentUser) {
         const and = [];
@@ -449,6 +507,40 @@ let UserService = class UserService {
                 lastPage: Math.ceil(total / limit),
             },
         };
+    }
+    async findOneById(targetId, actor) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: targetId },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                role: true,
+                schoolId: true,
+                branchId: true,
+                phone: true,
+                staffPosition: true,
+                staffClearanceActive: true,
+                createdAt: true,
+                branch: { select: { id: true, name: true, schoolId: true } },
+                school: { select: { id: true, name: true } },
+            },
+        });
+        if (!user) {
+            throw new common_1.NotFoundException('User not found');
+        }
+        if (actor.role !== client_1.UserRole.ADMIN && actor.id !== targetId) {
+            const isSuperior = await this.isSuperiorOf(actor, {
+                id: user.id,
+                role: user.role,
+                schoolId: user.schoolId,
+                branchId: user.branchId,
+            });
+            if (!isSuperior) {
+                throw new common_1.ForbiddenException('Cannot access this user');
+            }
+        }
+        return user;
     }
     async getUserDetail(targetId, actor) {
         const user = await this.prisma.user.findUnique({

@@ -34,6 +34,55 @@ export class SchoolController {
     return this.schoolService.findAll(user);
   }
 
+  @Get(':id/dashboard-summary')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
+  dashboardSummary(
+    @Param('id') id: string,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.schoolService.getDashboardSummary(id, user);
+  }
+
+  @Get(':id/compliance-requirements')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
+  listComplianceRequirements(
+    @Param('id') id: string,
+    @CurrentUser()
+    user: { role: UserRole; schoolId: string | null; branchId: string | null },
+  ) {
+    return this.schoolService.listComplianceRequirements(id, user);
+  }
+
+  @Get(':id/inspection-types')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
+  listInspectionTypes(
+    @Param('id') id: string,
+    @CurrentUser()
+    user: { role: UserRole; schoolId: string | null; branchId: string | null },
+  ) {
+    return this.schoolService.listInspectionTypes(id, user);
+  }
+
+  @Get(':id/certification-records')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
+  listCertificationRecords(
+    @Param('id') id: string,
+    @CurrentUser()
+    user: { role: UserRole; schoolId: string | null; branchId: string | null },
+  ) {
+    return this.schoolService.listCertificationRecords(id, user);
+  }
+
   @Get(':id')
   findOne(
     @Param('id') id: string,

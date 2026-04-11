@@ -41,6 +41,29 @@ let AnalyticsController = class AnalyticsController {
     getPendingActions(user) {
         return this.analytics.getPendingActions(user);
     }
+    getComplianceStats(schoolId, branchId, user) {
+        return this.analytics.getComplianceStats(user, schoolId, branchId);
+    }
+    listExpiringDocuments(schoolId, branchId, days, limit, user) {
+        return this.analytics.listExpiringDocuments(user, schoolId, branchId, days, limit);
+    }
+    listExpiredDocuments(schoolId, branchId, limit, user) {
+        return this.analytics.listExpiredDocuments(user, schoolId, branchId, limit);
+    }
+    getComplianceRoot(schoolId, user) {
+        const effectiveUser = user.role === client_1.UserRole.ADMIN && schoolId
+            ? {
+                ...user,
+                role: client_1.UserRole.DIRECTOR,
+                schoolId,
+                branchId: null,
+            }
+            : user;
+        return this.analytics.getComplianceSummary(effectiveUser);
+    }
+    getSchoolDashboard(schoolId, user) {
+        return this.analytics.getSchoolDashboardAnalytics(user, schoolId);
+    }
 };
 exports.AnalyticsController = AnalyticsController;
 __decorate([
@@ -81,6 +104,52 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], AnalyticsController.prototype, "getPendingActions", null);
+__decorate([
+    (0, common_1.Get)('compliance/stats'),
+    __param(0, (0, common_1.Query)('schoolId')),
+    __param(1, (0, common_1.Query)('branchId')),
+    __param(2, (0, current_user_decorator_js_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object, Object]),
+    __metadata("design:returntype", void 0)
+], AnalyticsController.prototype, "getComplianceStats", null);
+__decorate([
+    (0, common_1.Get)('documents/expiring'),
+    __param(0, (0, common_1.Query)('schoolId')),
+    __param(1, (0, common_1.Query)('branchId')),
+    __param(2, (0, common_1.Query)('days', new common_1.DefaultValuePipe(30), common_1.ParseIntPipe)),
+    __param(3, (0, common_1.Query)('limit', new common_1.DefaultValuePipe(50), common_1.ParseIntPipe)),
+    __param(4, (0, current_user_decorator_js_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object, Number, Number, Object]),
+    __metadata("design:returntype", void 0)
+], AnalyticsController.prototype, "listExpiringDocuments", null);
+__decorate([
+    (0, common_1.Get)('documents/expired'),
+    __param(0, (0, common_1.Query)('schoolId')),
+    __param(1, (0, common_1.Query)('branchId')),
+    __param(2, (0, common_1.Query)('limit', new common_1.DefaultValuePipe(50), common_1.ParseIntPipe)),
+    __param(3, (0, current_user_decorator_js_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object, Number, Object]),
+    __metadata("design:returntype", void 0)
+], AnalyticsController.prototype, "listExpiredDocuments", null);
+__decorate([
+    (0, common_1.Get)('compliance'),
+    __param(0, (0, common_1.Query)('schoolId')),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], AnalyticsController.prototype, "getComplianceRoot", null);
+__decorate([
+    (0, common_1.Get)('dashboard'),
+    __param(0, (0, common_1.Query)('schoolId')),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], AnalyticsController.prototype, "getSchoolDashboard", null);
 exports.AnalyticsController = AnalyticsController = __decorate([
     (0, common_1.Controller)('analytics'),
     (0, common_1.UseGuards)(jwt_auth_guard_js_1.JwtAuthGuard, roles_guard_js_1.RolesGuard),

@@ -9,10 +9,21 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateSchoolDto } from './dto/create-school.dto.js';
 import { UpdateSchoolDto } from './dto/update-school.dto.js';
 import { isSchoolDirector } from '../auth/school-scope.util.js';
+import { BranchDashboardService } from '../branch/branch-dashboard.service.js';
+
+type DashboardUser = {
+  id: string;
+  role: UserRole;
+  schoolId: string | null;
+  branchId: string | null;
+};
 
 @Injectable()
 export class SchoolService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly branchDashboardService: BranchDashboardService,
+  ) {}
 
   async create(dto: CreateSchoolDto) {
     return this.prisma.$transaction(async (tx) => {
@@ -140,6 +151,113 @@ export class SchoolService {
     await this.findOne(id, { role: UserRole.ADMIN, schoolId: null });
     return this.prisma.school.delete({
       where: { id },
+    });
+  }
+
+  /**
+   * School-wide stats for the dashboard shell (sidebar/topbar), aggregated across branches.
+   */
+  async getDashboardSummary(id: string, user: DashboardUser) {
+    await this.findOne(id, user);
+
+    const school = await this.prisma.school.findUnique({
+      where: { id },
+      select: { name: true },
+    });
+    if (!school) {
+      throw new NotFoundException('School not found');
+    }
+
+    const branches = await this.prisma.branch.findMany({
+      where: { schoolId: id },
+      select: { id: true },
+    });
+
+    const branchUser: DashboardUser = {
+      id: user.id,
+      role: user.role,
+      schoolId: user.schoolId,
+      branchId: user.branchId,
+    };
+
+    let studentCount = 0;
+    let teacherCount = 0;
+    let pendingDocs = 0;
+    let expiringDocs = 0;
+
+    for (const b of branches) {
+      const summary = await this.branchDashboardService.getDashboardSummary(
+        b.id,
+        branchUser,
+      );
+      studentCount += summary.studentCount;
+      teacherCount += summary.teacherCount;
+      pendingDocs += summary.compliance.missingSlots;
+      expiringDocs += summary.formsNearExpiryCount;
+    }
+
+    const parentCount = await this.prisma.user.count({
+      where: {
+        schoolId: id,
+        role: UserRole.PARENT,
+        deletedAt: null,
+      },
+    });
+
+    return {
+      name: school.name,
+      stats: {
+        pendingDocs,
+        expiringDocs,
+        studentCount,
+        teacherCount,
+        parentCount,
+      },
+    };
+  }
+
+  async listComplianceRequirements(
+    id: string,
+    user: { role: UserRole; schoolId: string | null; branchId: string | null },
+  ) {
+    await this.findOne(id, user);
+    return this.prisma.complianceRequirement.findMany({
+      where: { schoolId: id },
+      orderBy: [{ updatedAt: 'desc' }],
+      include: {
+        inspectionType: {
+          select: { id: true, name: true, frequency: true },
+        },
+        owner: { select: { id: true, name: true, email: true } },
+        createdBy: { select: { id: true, name: true, email: true } },
+      },
+    });
+  }
+
+  async listInspectionTypes(
+    id: string,
+    user: { role: UserRole; schoolId: string | null; branchId: string | null },
+  ) {
+    await this.findOne(id, user);
+    return this.prisma.inspectionType.findMany({
+      where: { schoolId: id },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async listCertificationRecords(
+    id: string,
+    user: { role: UserRole; schoolId: string | null; branchId: string | null },
+  ) {
+    await this.findOne(id, user);
+    return this.prisma.certificationRecord.findMany({
+      where: { schoolId: id },
+      orderBy: { updatedAt: 'desc' },
+      include: {
+        certificationType: {
+          select: { id: true, name: true, defaultValidityMonths: true },
+        },
+      },
     });
   }
 }

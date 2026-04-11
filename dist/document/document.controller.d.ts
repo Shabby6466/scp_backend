@@ -22,12 +22,12 @@ export declare class DocumentController {
             branchId: string | null;
             createdAt: Date;
             isActive: boolean;
-            sortOrder: number;
             targetRole: import("@prisma/client").$Enums.UserRole;
             category: string | null;
             description: string | null;
             isMandatory: boolean;
             renewalPeriod: import("@prisma/client").$Enums.RenewalPeriod;
+            sortOrder: number;
             appliesToAgeMin: number | null;
             appliesToAgeMax: number | null;
             complianceCategoryId: string | null;
@@ -47,8 +47,8 @@ export declare class DocumentController {
         createdAt: Date;
         notes: string | null;
         expiresAt: Date | null;
-        documentTypeId: string;
         ownerUserId: string;
+        documentTypeId: string;
         uploadedById: string;
         s3Key: string;
         fileName: string;
@@ -89,8 +89,8 @@ export declare class DocumentController {
         createdAt: Date;
         notes: string | null;
         expiresAt: Date | null;
-        documentTypeId: string;
         ownerUserId: string;
+        documentTypeId: string;
         uploadedById: string;
         s3Key: string;
         fileName: string;
@@ -123,8 +123,8 @@ export declare class DocumentController {
         createdAt: Date;
         notes: string | null;
         expiresAt: Date | null;
-        documentTypeId: string;
         ownerUserId: string;
+        documentTypeId: string;
         uploadedById: string;
         s3Key: string;
         fileName: string;
@@ -157,8 +157,8 @@ export declare class DocumentController {
         createdAt: Date;
         notes: string | null;
         expiresAt: Date | null;
-        documentTypeId: string;
         ownerUserId: string;
+        documentTypeId: string;
         uploadedById: string;
         s3Key: string;
         fileName: string;
@@ -189,12 +189,12 @@ export declare class DocumentController {
                 branchId: string | null;
                 createdAt: Date;
                 isActive: boolean;
-                sortOrder: number;
                 targetRole: import("@prisma/client").$Enums.UserRole;
                 category: string | null;
                 description: string | null;
                 isMandatory: boolean;
                 renewalPeriod: import("@prisma/client").$Enums.RenewalPeriod;
+                sortOrder: number;
                 appliesToAgeMin: number | null;
                 appliesToAgeMax: number | null;
                 complianceCategoryId: string | null;
@@ -214,8 +214,8 @@ export declare class DocumentController {
                 createdAt: Date;
                 notes: string | null;
                 expiresAt: Date | null;
-                documentTypeId: string;
                 ownerUserId: string;
+                documentTypeId: string;
                 uploadedById: string;
                 s3Key: string;
                 fileName: string;
@@ -255,8 +255,8 @@ export declare class DocumentController {
             createdAt: Date;
             notes: string | null;
             expiresAt: Date | null;
-            documentTypeId: string;
             ownerUserId: string;
+            documentTypeId: string;
             uploadedById: string;
             s3Key: string;
             fileName: string;
@@ -279,6 +279,178 @@ export declare class DocumentController {
         schoolId: string | null;
         branchId: string | null;
     }, res: Response): Promise<StreamableFile>;
+    summaryForOwner(ownerUserId: string, user: {
+        id: string;
+        role: UserRole;
+        schoolId: string | null;
+        branchId: string | null;
+    }): Promise<{
+        assignedCount: number;
+        uploadedCount: number;
+        remainingCount: number;
+        items: {
+            documentType: {
+                name: string;
+                id: string;
+                updatedAt: Date;
+                schoolId: string | null;
+                branchId: string | null;
+                createdAt: Date;
+                isActive: boolean;
+                targetRole: import("@prisma/client").$Enums.UserRole;
+                category: string | null;
+                description: string | null;
+                isMandatory: boolean;
+                renewalPeriod: import("@prisma/client").$Enums.RenewalPeriod;
+                sortOrder: number;
+                appliesToAgeMin: number | null;
+                appliesToAgeMax: number | null;
+                complianceCategoryId: string | null;
+                createdById: string;
+            };
+            latestDocument: ({
+                documentType: {
+                    name: string;
+                    id: string;
+                    isMandatory: boolean;
+                    renewalPeriod: import("@prisma/client").$Enums.RenewalPeriod;
+                };
+            } & {
+                id: string;
+                deletedAt: Date | null;
+                deletedBy: string | null;
+                createdAt: Date;
+                notes: string | null;
+                expiresAt: Date | null;
+                ownerUserId: string;
+                documentTypeId: string;
+                uploadedById: string;
+                s3Key: string;
+                fileName: string;
+                mimeType: string;
+                sizeBytes: number;
+                status: import("@prisma/client").$Enums.DocumentStatus;
+                issuedAt: Date | null;
+                verifiedAt: Date | null;
+                reviewedAt: Date | null;
+                reviewedById: string | null;
+                rejectionReason: string | null;
+            }) | null;
+            remainingDays: number | null;
+        }[];
+    }>;
+    perFormForOwner(ownerUserId: string, user: {
+        id: string;
+        role: UserRole;
+        schoolId: string | null;
+        branchId: string | null;
+    }): Promise<{
+        assignedCount: number;
+        uploadedCount: number;
+        remainingCount: number;
+        items: {
+            documentType: {
+                name: string;
+                id: string;
+                updatedAt: Date;
+                schoolId: string | null;
+                branchId: string | null;
+                createdAt: Date;
+                isActive: boolean;
+                targetRole: import("@prisma/client").$Enums.UserRole;
+                category: string | null;
+                description: string | null;
+                isMandatory: boolean;
+                renewalPeriod: import("@prisma/client").$Enums.RenewalPeriod;
+                sortOrder: number;
+                appliesToAgeMin: number | null;
+                appliesToAgeMax: number | null;
+                complianceCategoryId: string | null;
+                createdById: string;
+            };
+            latestDocument: ({
+                documentType: {
+                    name: string;
+                    id: string;
+                    isMandatory: boolean;
+                    renewalPeriod: import("@prisma/client").$Enums.RenewalPeriod;
+                };
+            } & {
+                id: string;
+                deletedAt: Date | null;
+                deletedBy: string | null;
+                createdAt: Date;
+                notes: string | null;
+                expiresAt: Date | null;
+                ownerUserId: string;
+                documentTypeId: string;
+                uploadedById: string;
+                s3Key: string;
+                fileName: string;
+                mimeType: string;
+                sizeBytes: number;
+                status: import("@prisma/client").$Enums.DocumentStatus;
+                issuedAt: Date | null;
+                verifiedAt: Date | null;
+                reviewedAt: Date | null;
+                reviewedById: string | null;
+                rejectionReason: string | null;
+            }) | null;
+            remainingDays: number | null;
+        }[];
+    }>;
+    getDownloadUrlAlias(id: string, user: {
+        id: string;
+        role: UserRole;
+        schoolId: string | null;
+        branchId: string | null;
+    }): Promise<{
+        url: string;
+    }>;
+    getDocumentById(id: string, user: {
+        id: string;
+        role: UserRole;
+        schoolId: string | null;
+        branchId: string | null;
+    }): Promise<{
+        documentType: {
+            name: string;
+            id: string;
+            targetRole: import("@prisma/client").$Enums.UserRole;
+            renewalPeriod: import("@prisma/client").$Enums.RenewalPeriod;
+        };
+        ownerUser: {
+            name: string | null;
+            id: string;
+            email: string;
+            role: import("@prisma/client").$Enums.UserRole;
+        };
+        uploadedBy: {
+            name: string | null;
+            id: string;
+            email: string;
+        };
+    } & {
+        id: string;
+        deletedAt: Date | null;
+        deletedBy: string | null;
+        createdAt: Date;
+        notes: string | null;
+        expiresAt: Date | null;
+        ownerUserId: string;
+        documentTypeId: string;
+        uploadedById: string;
+        s3Key: string;
+        fileName: string;
+        mimeType: string;
+        sizeBytes: number;
+        status: import("@prisma/client").$Enums.DocumentStatus;
+        issuedAt: Date | null;
+        verifiedAt: Date | null;
+        reviewedAt: Date | null;
+        reviewedById: string | null;
+        rejectionReason: string | null;
+    }>;
     verify(id: string, user: {
         id: string;
         role: UserRole;
@@ -297,8 +469,8 @@ export declare class DocumentController {
         createdAt: Date;
         notes: string | null;
         expiresAt: Date | null;
-        documentTypeId: string;
         ownerUserId: string;
+        documentTypeId: string;
         uploadedById: string;
         s3Key: string;
         fileName: string;

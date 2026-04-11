@@ -20,6 +20,9 @@ class SearchDocumentDto {
     documentTypeId;
     verified;
     ownerRole;
+    status;
+    limit;
+    offset;
 }
 exports.SearchDocumentDto = SearchDocumentDto;
 __decorate([
@@ -53,4 +56,19 @@ __decorate([
     (0, class_validator_1.IsEnum)(client_1.UserRole),
     __metadata("design:type", String)
 ], SearchDocumentDto.prototype, "ownerRole", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], SearchDocumentDto.prototype, "status", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => parseInt(value, 10)),
+    __metadata("design:type", Number)
+], SearchDocumentDto.prototype, "limit", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => parseInt(value, 10)),
+    __metadata("design:type", Number)
+], SearchDocumentDto.prototype, "offset", void 0);
 //# sourceMappingURL=search-document.dto.js.map

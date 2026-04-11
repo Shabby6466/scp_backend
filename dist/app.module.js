@@ -22,6 +22,8 @@ const index_js_7 = require("./document/index.js");
 const index_js_8 = require("./settings/index.js");
 const analytics_module_js_1 = require("./analytics/analytics.module.js");
 const compliance_category_module_js_1 = require("./compliance-category/compliance-category.module.js");
+const invitation_module_js_1 = require("./invitation/invitation.module.js");
+const student_parent_module_js_1 = require("./student-parent/student-parent.module.js");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -44,6 +46,8 @@ exports.AppModule = AppModule = __decorate([
             index_js_8.SettingsModule,
             analytics_module_js_1.AnalyticsModule,
             compliance_category_module_js_1.ComplianceCategoryModule,
+            invitation_module_js_1.InvitationModule,
+            student_parent_module_js_1.StudentParentModule,
         ],
         controllers: [app_controller_js_1.AppController],
     })

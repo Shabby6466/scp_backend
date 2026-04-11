@@ -57,6 +57,19 @@ let DocumentController = class DocumentController {
         });
         return new common_1.StreamableFile(buffer);
     }
+    summaryForOwner(ownerUserId, user) {
+        return this.documentService.getSummaryForOwner(ownerUserId, user);
+    }
+    perFormForOwner(ownerUserId, user) {
+        return this.documentService.getSummaryForOwner(ownerUserId, user);
+    }
+    async getDownloadUrlAlias(id, user) {
+        const url = await this.documentService.getDownloadUrl(id, user);
+        return { url };
+    }
+    getDocumentById(id, user) {
+        return this.documentService.findDocumentById(id, user);
+    }
     verify(id, user) {
         return this.documentService.verify(id, user);
     }
@@ -139,6 +152,38 @@ __decorate([
     __metadata("design:paramtypes", [String, String, Object, Object]),
     __metadata("design:returntype", Promise)
 ], DocumentController.prototype, "exportPerFormPdf", null);
+__decorate([
+    (0, common_1.Get)('summary/:ownerUserId'),
+    __param(0, (0, common_1.Param)('ownerUserId')),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], DocumentController.prototype, "summaryForOwner", null);
+__decorate([
+    (0, common_1.Get)('per-form/:ownerUserId'),
+    __param(0, (0, common_1.Param)('ownerUserId')),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], DocumentController.prototype, "perFormForOwner", null);
+__decorate([
+    (0, common_1.Get)(':id/download-url'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], DocumentController.prototype, "getDownloadUrlAlias", null);
+__decorate([
+    (0, common_1.Get)(':id'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], DocumentController.prototype, "getDocumentById", null);
 __decorate([
     (0, common_1.Patch)(':id/verify'),
     __param(0, (0, common_1.Param)('id')),

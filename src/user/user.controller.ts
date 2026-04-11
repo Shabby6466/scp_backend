@@ -25,9 +25,17 @@ export class UserController {
 
   @Get('users')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
-  listAll(@Query() dto: SearchUserDto) {
-    return this.userService.listAll(dto);
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
+  listUsers(
+    @Query() dto: SearchUserDto,
+    @CurrentUser()
+    user: {
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.userService.listUsersForCaller(dto, user);
   }
 
   @Get('users/search')
@@ -70,6 +78,29 @@ export class UserController {
     },
   ) {
     return this.userService.getUserDetail(id, user);
+  }
+
+  @Get('users/:id')
+  @UseGuards(RolesGuard)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.DIRECTOR,
+    UserRole.BRANCH_DIRECTOR,
+    UserRole.TEACHER,
+    UserRole.STUDENT,
+    UserRole.PARENT,
+  )
+  findOneById(
+    @Param('id') id: string,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.userService.findOneById(id, user);
   }
 
   @Post('users')

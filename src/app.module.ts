@@ -13,6 +13,8 @@ import { DocumentModule } from './document/index.js';
 import { SettingsModule } from './settings/index.js';
 import { AnalyticsModule } from './analytics/analytics.module.js';
 import { ComplianceCategoryModule } from './compliance-category/compliance-category.module.js';
+import { InvitationModule } from './invitation/invitation.module.js';
+import { StudentParentModule } from './student-parent/student-parent.module.js';
 
 @Module({
   imports: [
@@ -33,6 +35,8 @@ import { ComplianceCategoryModule } from './compliance-category/compliance-categ
     SettingsModule,
     AnalyticsModule,
     ComplianceCategoryModule,
+    InvitationModule,
+    StudentParentModule,
   ],
   controllers: [AppController],
 })

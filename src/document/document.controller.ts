@@ -160,6 +160,64 @@ export class DocumentController {
     return new StreamableFile(buffer);
   }
 
+  @Get('summary/:ownerUserId')
+  summaryForOwner(
+    @Param('ownerUserId') ownerUserId: string,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.documentService.getSummaryForOwner(ownerUserId, user);
+  }
+
+  /** Legacy alias used by the frontend (`/documents/per-form/:ownerUserId`). */
+  @Get('per-form/:ownerUserId')
+  perFormForOwner(
+    @Param('ownerUserId') ownerUserId: string,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.documentService.getSummaryForOwner(ownerUserId, user);
+  }
+
+  @Get(':id/download-url')
+  async getDownloadUrlAlias(
+    @Param('id') id: string,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    const url = await this.documentService.getDownloadUrl(id, user);
+    return { url };
+  }
+
+  @Get(':id')
+  getDocumentById(
+    @Param('id') id: string,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.documentService.findDocumentById(id, user);
+  }
+
   @Patch(':id/verify')
   verify(
     @Param('id') id: string,

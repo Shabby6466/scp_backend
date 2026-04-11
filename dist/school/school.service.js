@@ -14,10 +14,13 @@ const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const prisma_service_js_1 = require("../prisma/prisma.service.js");
 const school_scope_util_js_1 = require("../auth/school-scope.util.js");
+const branch_dashboard_service_js_1 = require("../branch/branch-dashboard.service.js");
 let SchoolService = class SchoolService {
     prisma;
-    constructor(prisma) {
+    branchDashboardService;
+    constructor(prisma, branchDashboardService) {
         this.prisma = prisma;
+        this.branchDashboardService = branchDashboardService;
     }
     async create(dto) {
         return this.prisma.$transaction(async (tx) => {
@@ -127,10 +130,92 @@ let SchoolService = class SchoolService {
             where: { id },
         });
     }
+    async getDashboardSummary(id, user) {
+        await this.findOne(id, user);
+        const school = await this.prisma.school.findUnique({
+            where: { id },
+            select: { name: true },
+        });
+        if (!school) {
+            throw new common_1.NotFoundException('School not found');
+        }
+        const branches = await this.prisma.branch.findMany({
+            where: { schoolId: id },
+            select: { id: true },
+        });
+        const branchUser = {
+            id: user.id,
+            role: user.role,
+            schoolId: user.schoolId,
+            branchId: user.branchId,
+        };
+        let studentCount = 0;
+        let teacherCount = 0;
+        let pendingDocs = 0;
+        let expiringDocs = 0;
+        for (const b of branches) {
+            const summary = await this.branchDashboardService.getDashboardSummary(b.id, branchUser);
+            studentCount += summary.studentCount;
+            teacherCount += summary.teacherCount;
+            pendingDocs += summary.compliance.missingSlots;
+            expiringDocs += summary.formsNearExpiryCount;
+        }
+        const parentCount = await this.prisma.user.count({
+            where: {
+                schoolId: id,
+                role: client_1.UserRole.PARENT,
+                deletedAt: null,
+            },
+        });
+        return {
+            name: school.name,
+            stats: {
+                pendingDocs,
+                expiringDocs,
+                studentCount,
+                teacherCount,
+                parentCount,
+            },
+        };
+    }
+    async listComplianceRequirements(id, user) {
+        await this.findOne(id, user);
+        return this.prisma.complianceRequirement.findMany({
+            where: { schoolId: id },
+            orderBy: [{ updatedAt: 'desc' }],
+            include: {
+                inspectionType: {
+                    select: { id: true, name: true, frequency: true },
+                },
+                owner: { select: { id: true, name: true, email: true } },
+                createdBy: { select: { id: true, name: true, email: true } },
+            },
+        });
+    }
+    async listInspectionTypes(id, user) {
+        await this.findOne(id, user);
+        return this.prisma.inspectionType.findMany({
+            where: { schoolId: id },
+            orderBy: { name: 'asc' },
+        });
+    }
+    async listCertificationRecords(id, user) {
+        await this.findOne(id, user);
+        return this.prisma.certificationRecord.findMany({
+            where: { schoolId: id },
+            orderBy: { updatedAt: 'desc' },
+            include: {
+                certificationType: {
+                    select: { id: true, name: true, defaultValidityMonths: true },
+                },
+            },
+        });
+    }
 };
 exports.SchoolService = SchoolService;
 exports.SchoolService = SchoolService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_js_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
+        branch_dashboard_service_js_1.BranchDashboardService])
 ], SchoolService);
 //# sourceMappingURL=school.service.js.map

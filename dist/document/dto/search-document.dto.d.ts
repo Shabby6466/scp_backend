@@ -6,4 +6,7 @@ export declare class SearchDocumentDto {
     documentTypeId?: string;
     verified?: boolean;
     ownerRole?: UserRole;
+    status?: string;
+    limit?: number;
+    offset?: number;
 }

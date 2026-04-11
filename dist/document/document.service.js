@@ -162,6 +162,17 @@ let DocumentService = DocumentService_1 = class DocumentService {
         if (dto.ownerRole) {
             and.push({ ownerUser: { role: dto.ownerRole } });
         }
+        if (dto.status?.trim()) {
+            const s = dto.status.trim().toLowerCase();
+            if (s === 'pending' || s === 'unverified') {
+                and.push({ verifiedAt: null });
+            }
+            else if (s === 'approved' || s === 'verified') {
+                and.push({ verifiedAt: { not: null } });
+            }
+        }
+        const take = dto.limit != null ? Math.min(Math.max(dto.limit, 1), 200) : undefined;
+        const skip = dto.offset != null ? Math.max(dto.offset, 0) : undefined;
         return this.prisma.document.findMany({
             where,
             include: {
@@ -171,7 +182,59 @@ let DocumentService = DocumentService_1 = class DocumentService {
                 },
             },
             orderBy: { createdAt: 'desc' },
+            take,
+            skip,
         });
+    }
+    async getSummaryForOwner(ownerUserId, user) {
+        await this.ensureCanAccessDocumentOwner(ownerUserId, user);
+        const me = await this.prisma.user.findUniqueOrThrow({
+            where: { id: ownerUserId },
+            select: {
+                requiredDocTypes: {
+                    orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+                },
+            },
+        });
+        const docs = await this.prisma.document.findMany({
+            where: { ownerUserId },
+            include: {
+                documentType: {
+                    select: {
+                        id: true,
+                        name: true,
+                        renewalPeriod: true,
+                        isMandatory: true,
+                    },
+                },
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+        const latestByType = new Map();
+        for (const doc of docs) {
+            if (!latestByType.has(doc.documentTypeId)) {
+                latestByType.set(doc.documentTypeId, doc);
+            }
+        }
+        const items = me.requiredDocTypes.map((docType) => {
+            const latest = latestByType.get(docType.id) ?? null;
+            return {
+                documentType: docType,
+                latestDocument: latest,
+                remainingDays: latest?.expiresAt
+                    ? Math.max(0, Math.ceil((latest.expiresAt.getTime() - Date.now()) /
+                        (1000 * 60 * 60 * 24)))
+                    : null,
+            };
+        });
+        const assignedCount = items.length;
+        const uploadedCount = items.filter((item) => item.latestDocument != null).length;
+        return {
+            assignedCount,
+            uploadedCount,
+            remainingCount: assignedCount - uploadedCount,
+            items,
+        };
     }
     async getAssignedSummary(user) {
         const me = await this.prisma.user.findUniqueOrThrow({
@@ -373,6 +436,30 @@ let DocumentService = DocumentService_1 = class DocumentService {
             where: { id: ownerUserId },
             data: { staffClearanceActive: allClearancesVerified },
         });
+    }
+    async findDocumentById(documentId, user) {
+        const doc = await this.prisma.document.findUnique({
+            where: { id: documentId },
+            include: {
+                documentType: {
+                    select: {
+                        id: true,
+                        name: true,
+                        targetRole: true,
+                        renewalPeriod: true,
+                    },
+                },
+                ownerUser: {
+                    select: { id: true, name: true, email: true, role: true },
+                },
+                uploadedBy: { select: { id: true, name: true, email: true } },
+            },
+        });
+        if (!doc) {
+            throw new common_1.NotFoundException('Document not found');
+        }
+        await this.ensureCanAccessDocumentOwner(doc.ownerUserId, user);
+        return doc;
     }
     async getDownloadUrl(documentId, user) {
         const doc = await this.prisma.document.findUnique({

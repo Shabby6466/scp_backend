@@ -10,12 +10,13 @@ exports.SchoolModule = void 0;
 const common_1 = require("@nestjs/common");
 const school_controller_js_1 = require("./school.controller.js");
 const school_service_js_1 = require("./school.service.js");
+const branch_module_js_1 = require("../branch/branch.module.js");
 let SchoolModule = class SchoolModule {
 };
 exports.SchoolModule = SchoolModule;
 exports.SchoolModule = SchoolModule = __decorate([
     (0, common_1.Module)({
-        imports: [],
+        imports: [branch_module_js_1.BranchModule],
         controllers: [school_controller_js_1.SchoolController],
         providers: [school_service_js_1.SchoolService],
         exports: [school_service_js_1.SchoolService],

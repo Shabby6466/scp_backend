@@ -6,7 +6,11 @@ import { UserRole } from '@prisma/client';
 export declare class UserController {
     private readonly userService;
     constructor(userService: UserService);
-    listAll(dto: SearchUserDto): Promise<{
+    listUsers(dto: SearchUserDto, user: {
+        role: UserRole;
+        schoolId: string | null;
+        branchId: string | null;
+    }): Promise<{
         data: any;
         meta: {
             total: any;
@@ -133,12 +137,12 @@ export declare class UserController {
                 branchId: string | null;
                 createdAt: Date;
                 isActive: boolean;
-                sortOrder: number;
                 targetRole: import("@prisma/client").$Enums.UserRole;
                 category: string | null;
                 description: string | null;
                 isMandatory: boolean;
                 renewalPeriod: import("@prisma/client").$Enums.RenewalPeriod;
+                sortOrder: number;
                 appliesToAgeMin: number | null;
                 appliesToAgeMax: number | null;
                 complianceCategoryId: string | null;
@@ -156,8 +160,8 @@ export declare class UserController {
             createdAt: Date;
             notes: string | null;
             expiresAt: Date | null;
-            documentTypeId: string;
             ownerUserId: string;
+            documentTypeId: string;
             uploadedById: string;
             s3Key: string;
             fileName: string;
@@ -178,12 +182,12 @@ export declare class UserController {
             branchId: string | null;
             createdAt: Date;
             isActive: boolean;
-            sortOrder: number;
             targetRole: import("@prisma/client").$Enums.UserRole;
             category: string | null;
             description: string | null;
             isMandatory: boolean;
             renewalPeriod: import("@prisma/client").$Enums.RenewalPeriod;
+            sortOrder: number;
             appliesToAgeMin: number | null;
             appliesToAgeMax: number | null;
             complianceCategoryId: string | null;
@@ -206,6 +210,32 @@ export declare class UserController {
         emailVerifiedAt: Date | null;
         deletedAt: Date | null;
         deletedBy: string | null;
+        createdAt: Date;
+    }>;
+    findOneById(id: string, user: {
+        id: string;
+        role: UserRole;
+        schoolId: string | null;
+        branchId: string | null;
+    }): Promise<{
+        school: {
+            name: string;
+            id: string;
+        } | null;
+        branch: {
+            name: string;
+            id: string;
+            schoolId: string;
+        } | null;
+        name: string | null;
+        id: string;
+        email: string;
+        phone: string | null;
+        role: import("@prisma/client").$Enums.UserRole;
+        schoolId: string | null;
+        branchId: string | null;
+        staffPosition: import("@prisma/client").$Enums.StaffPosition | null;
+        staffClearanceActive: boolean;
         createdAt: Date;
     }>;
     createUserGlobal(dto: CreateUserDto, user: {

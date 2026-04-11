@@ -68,6 +68,101 @@ export declare class SchoolController {
         approvedAt: Date | null;
         approvedBy: string | null;
     })[]>;
+    dashboardSummary(id: string, user: {
+        id: string;
+        role: UserRole;
+        schoolId: string | null;
+        branchId: string | null;
+    }): Promise<{
+        name: string;
+        stats: {
+            pendingDocs: number;
+            expiringDocs: number;
+            studentCount: number;
+            teacherCount: number;
+            parentCount: number;
+        };
+    }>;
+    listComplianceRequirements(id: string, user: {
+        role: UserRole;
+        schoolId: string | null;
+        branchId: string | null;
+    }): Promise<({
+        inspectionType: {
+            name: string;
+            id: string;
+            frequency: string | null;
+        } | null;
+        createdBy: {
+            name: string | null;
+            id: string;
+            email: string;
+        } | null;
+        owner: {
+            name: string | null;
+            id: string;
+            email: string;
+        } | null;
+    } & {
+        tags: string[];
+        id: string;
+        updatedAt: Date;
+        schoolId: string;
+        createdAt: Date;
+        description: string | null;
+        createdById: string | null;
+        ownerUserId: string | null;
+        status: string;
+        inspectionTypeId: string | null;
+        title: string;
+        frequency: string | null;
+        intervalValue: number | null;
+        riskLevel: string | null;
+        dueDate: Date | null;
+        nextDueDate: Date | null;
+        lastCompletedAt: Date | null;
+        evidenceRequired: boolean;
+        requiresReview: boolean;
+    })[]>;
+    listInspectionTypes(id: string, user: {
+        role: UserRole;
+        schoolId: string | null;
+        branchId: string | null;
+    }): Promise<{
+        name: string;
+        id: string;
+        updatedAt: Date;
+        schoolId: string;
+        createdAt: Date;
+        isActive: boolean;
+        description: string | null;
+        frequency: string | null;
+    }[]>;
+    listCertificationRecords(id: string, user: {
+        role: UserRole;
+        schoolId: string | null;
+        branchId: string | null;
+    }): Promise<({
+        certificationType: {
+            name: string;
+            id: string;
+            defaultValidityMonths: number | null;
+        };
+    } & {
+        id: string;
+        updatedAt: Date;
+        schoolId: string;
+        createdAt: Date;
+        notes: string | null;
+        ownerUserId: string | null;
+        status: string;
+        certificationTypeId: string;
+        appliesTo: string | null;
+        subjectId: string | null;
+        subjectName: string | null;
+        issuedDate: Date | null;
+        expiryDate: Date | null;
+    })[]>;
     findOne(id: string, user: {
         role: UserRole;
         schoolId: string | null;

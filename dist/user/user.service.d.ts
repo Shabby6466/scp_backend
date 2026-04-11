@@ -107,7 +107,20 @@ export declare class UserService {
             lastPage: number;
         };
     }>;
+    private searchDtoFilterParts;
     listAll(dto?: SearchUserDto): Promise<{
+        data: any;
+        meta: {
+            total: any;
+            page: number;
+            lastPage: number;
+        };
+    }>;
+    listUsersForCaller(dto: SearchUserDto, user: {
+        role: UserRole;
+        schoolId: string | null;
+        branchId: string | null;
+    }): Promise<{
         data: any;
         meta: {
             total: any;
@@ -129,6 +142,32 @@ export declare class UserService {
         };
     }>;
     private paginate;
+    findOneById(targetId: string, actor: {
+        id: string;
+        role: UserRole;
+        schoolId: string | null;
+        branchId: string | null;
+    }): Promise<{
+        school: {
+            name: string;
+            id: string;
+        } | null;
+        branch: {
+            name: string;
+            id: string;
+            schoolId: string;
+        } | null;
+        name: string | null;
+        id: string;
+        email: string;
+        phone: string | null;
+        role: import("@prisma/client").$Enums.UserRole;
+        schoolId: string | null;
+        branchId: string | null;
+        staffPosition: import("@prisma/client").$Enums.StaffPosition | null;
+        staffClearanceActive: boolean;
+        createdAt: Date;
+    }>;
     getUserDetail(targetId: string, actor: {
         id: string;
         role: UserRole;
@@ -235,12 +274,12 @@ export declare class UserService {
                 branchId: string | null;
                 createdAt: Date;
                 isActive: boolean;
-                sortOrder: number;
                 targetRole: import("@prisma/client").$Enums.UserRole;
                 category: string | null;
                 description: string | null;
                 isMandatory: boolean;
                 renewalPeriod: import("@prisma/client").$Enums.RenewalPeriod;
+                sortOrder: number;
                 appliesToAgeMin: number | null;
                 appliesToAgeMax: number | null;
                 complianceCategoryId: string | null;
@@ -258,8 +297,8 @@ export declare class UserService {
             createdAt: Date;
             notes: string | null;
             expiresAt: Date | null;
-            documentTypeId: string;
             ownerUserId: string;
+            documentTypeId: string;
             uploadedById: string;
             s3Key: string;
             fileName: string;
@@ -280,12 +319,12 @@ export declare class UserService {
             branchId: string | null;
             createdAt: Date;
             isActive: boolean;
-            sortOrder: number;
             targetRole: import("@prisma/client").$Enums.UserRole;
             category: string | null;
             description: string | null;
             isMandatory: boolean;
             renewalPeriod: import("@prisma/client").$Enums.RenewalPeriod;
+            sortOrder: number;
             appliesToAgeMin: number | null;
             appliesToAgeMax: number | null;
             complianceCategoryId: string | null;
