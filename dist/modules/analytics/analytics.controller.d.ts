@@ -87,6 +87,15 @@ export declare class AnalyticsController {
         schoolId: string | null;
         branchId: string | null;
     }): Promise<{
+        totalSchools: number;
+        pendingSchools: number;
+        approvedSchools: number;
+        totalUsers: number;
+        totalDocuments: number;
+        pendingDocuments: number;
+        totalStudents: number;
+        totalTeachers: number;
+    } | {
         studentCount: number;
         teacherCount: number;
         parentCount: number;

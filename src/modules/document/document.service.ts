@@ -21,6 +21,7 @@ import { SearchDocumentDto } from './dto/search-document.dto';
 import { UserService } from '../user/user.service';
 import { DocumentTypeService } from '../document-type/document-type.service';
 import { BranchService } from '../branch/branch.service';
+import { StudentParentService } from '../student-parent/student-parent.service';
 
 type CurrentUser = {
   id: string;
@@ -43,6 +44,8 @@ export class DocumentService {
     private readonly userService: UserService,
     @Inject(forwardRef(() => BranchService))
     private readonly branchService: BranchService,
+    @Inject(forwardRef(() => StudentParentService))
+    private readonly studentParent: StudentParentService,
     private readonly storage: StorageService,
     private readonly mailer: MailerService,
   ) { }
@@ -548,6 +551,12 @@ export class DocumentService {
     if (!branch) throw new NotFoundException('Branch not found');
 
     if (canManageBranchLikeDirector(user, branch)) return;
+
+    if (user.role === UserRole.PARENT) {
+      if (await this.studentParent.isLinked(user.id, ownerUserId)) {
+        return;
+      }
+    }
 
     throw new ForbiddenException('Cannot access this document');
   }

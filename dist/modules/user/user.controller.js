@@ -45,6 +45,9 @@ let UserController = class UserController {
     updateUser(id, dto, user) {
         return this.userService.updateUser(id, dto, user);
     }
+    deleteUser(id, user) {
+        return this.userService.remove(id, user.id);
+    }
     createUser(schoolId, dto, user) {
         return this.userService.createUser({ ...dto, schoolId: dto.schoolId ?? schoolId }, user);
     }
@@ -120,6 +123,16 @@ __decorate([
     __metadata("design:paramtypes", [String, update_user_dto_1.UpdateUserDto, Object]),
     __metadata("design:returntype", void 0)
 ], UserController.prototype, "updateUser", null);
+__decorate([
+    (0, common_1.Delete)('users/:id'),
+    (0, common_1.UseGuards)(roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)(database_enum_1.UserRole.ADMIN),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], UserController.prototype, "deleteUser", null);
 __decorate([
     (0, common_1.Post)('schools/:schoolId/users'),
     (0, common_1.UseGuards)(roles_guard_1.RolesGuard),

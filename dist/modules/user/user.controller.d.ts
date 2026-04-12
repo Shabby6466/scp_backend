@@ -56,6 +56,9 @@ export declare class UserController {
         schoolId: string | null;
         branchId: string | null;
     }): Promise<import("../../entities/user.entity").User | null>;
+    deleteUser(id: string, user: {
+        id: string;
+    }): Promise<import("typeorm").UpdateResult>;
     createUser(schoolId: string, dto: CreateUserDto, user: {
         id: string;
         role: UserRole;

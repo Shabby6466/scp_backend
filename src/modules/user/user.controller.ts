@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -135,6 +136,16 @@ export class UserController {
     },
   ) {
     return this.userService.updateUser(id, dto, user);
+  }
+
+  @Delete('users/:id')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  deleteUser(
+    @Param('id') id: string,
+    @CurrentUser() user: { id: string },
+  ) {
+    return this.userService.remove(id, user.id);
   }
 
   @Post('schools/:schoolId/users')

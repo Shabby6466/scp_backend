@@ -857,6 +857,15 @@ let UserService = class UserService {
         aqb.andWhere('d.id IS NULL');
         return aqb.getMany();
     }
+    async remove(targetId, actorId) {
+        const user = await this.userRepository.findOne({ where: { id: targetId } });
+        if (!user) {
+            throw new common_1.NotFoundException('User not found');
+        }
+        user.deletedBy = actorId;
+        await this.userRepository.save(user);
+        return this.userRepository.softDelete(targetId);
+    }
 };
 exports.UserService = UserService;
 exports.UserService = UserService = __decorate([

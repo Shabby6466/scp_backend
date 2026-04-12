@@ -16,6 +16,9 @@ exports.AnalyticsService = exports.ANALYTICS_NEAR_EXPIRY_DAYS = void 0;
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("typeorm");
 const database_enum_1 = require("../common/enums/database.enum");
+const school_entity_1 = require("../../entities/school.entity");
+const user_entity_1 = require("../../entities/user.entity");
+const document_entity_1 = require("../../entities/document.entity");
 const school_scope_util_1 = require("../auth/school-scope.util");
 const school_service_1 = require("../school/school.service");
 const branch_service_1 = require("../branch/branch.service");
@@ -24,6 +27,7 @@ const document_service_1 = require("../document/document.service");
 const document_type_service_1 = require("../document-type/document-type.service");
 const branch_dashboard_service_1 = require("../branch/branch-dashboard.service");
 exports.ANALYTICS_NEAR_EXPIRY_DAYS = 30;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 let AnalyticsService = class AnalyticsService {
     constructor(dataSource, schoolService, branchService, userService, documentService, documentTypeService) {
         this.dataSource = dataSource;
@@ -32,6 +36,41 @@ let AnalyticsService = class AnalyticsService {
         this.userService = userService;
         this.documentService = documentService;
         this.documentTypeService = documentTypeService;
+    }
+    isUuid(value) {
+        return UUID_RE.test(value);
+    }
+    parseOptionalQueryUuid(raw, paramName) {
+        const v = raw?.trim() || undefined;
+        if (v && !this.isUuid(v)) {
+            throw new common_1.BadRequestException(`Invalid ${paramName}`);
+        }
+        return v;
+    }
+    async getPlatformDashboardAnalytics() {
+        const schoolRepo = this.dataSource.getRepository(school_entity_1.School);
+        const userRepo = this.dataSource.getRepository(user_entity_1.User);
+        const docRepo = this.dataSource.getRepository(document_entity_1.Document);
+        const [totalSchools, pendingSchools, approvedSchools, totalUsers, totalStudents, totalTeachers, totalDocuments, pendingDocuments,] = await Promise.all([
+            schoolRepo.count(),
+            schoolRepo.count({ where: { isApproved: false } }),
+            schoolRepo.count({ where: { isApproved: true } }),
+            userRepo.count(),
+            userRepo.count({ where: { role: database_enum_1.UserRole.STUDENT } }),
+            userRepo.count({ where: { role: database_enum_1.UserRole.TEACHER } }),
+            docRepo.count(),
+            docRepo.count({ where: { verifiedAt: (0, typeorm_1.IsNull)() } }),
+        ]);
+        return {
+            totalSchools,
+            pendingSchools,
+            approvedSchools,
+            totalUsers,
+            totalDocuments,
+            pendingDocuments,
+            totalStudents,
+            totalTeachers,
+        };
     }
     resolveScope(user) {
         if (user.role === database_enum_1.UserRole.ADMIN) {
@@ -224,22 +263,30 @@ let AnalyticsService = class AnalyticsService {
         };
     }
     assertSchoolScope(user, schoolId, branchId) {
+        const s = schoolId?.trim() || undefined;
+        const b = branchId?.trim() || undefined;
+        if (s && !this.isUuid(s)) {
+            throw new common_1.BadRequestException('Invalid schoolId');
+        }
+        if (b && !this.isUuid(b)) {
+            throw new common_1.BadRequestException('Invalid branchId');
+        }
         if (user.role === database_enum_1.UserRole.ADMIN) {
-            if (branchId)
-                return { branchId };
-            if (schoolId)
-                return { schoolId };
+            if (b)
+                return { branchId: b };
+            if (s)
+                return { schoolId: s };
             throw new common_1.ForbiddenException('schoolId or branchId is required');
         }
         const scope = this.resolveScope(user);
         if (scope.kind === 'school') {
-            if (schoolId && schoolId !== scope.schoolId) {
+            if (s && s !== scope.schoolId) {
                 throw new common_1.ForbiddenException('Cannot access this school');
             }
             return { schoolId: scope.schoolId };
         }
         if (scope.kind === 'branch' || scope.kind === 'teacher') {
-            if (branchId && branchId !== scope.branchId) {
+            if (b && b !== scope.branchId) {
                 throw new common_1.ForbiddenException('Cannot access this branch');
             }
             return { branchId: scope.branchId };
@@ -250,12 +297,14 @@ let AnalyticsService = class AnalyticsService {
         throw new common_1.ForbiddenException('Insufficient permissions');
     }
     async getComplianceStats(user, schoolId, branchId) {
-        const loc = this.assertSchoolScope(user, schoolId, branchId);
-        const effectiveUser = user.role === database_enum_1.UserRole.ADMIN && schoolId && !branchId
+        const s = schoolId?.trim() || undefined;
+        const b = branchId?.trim() || undefined;
+        const loc = this.assertSchoolScope(user, s, b);
+        const effectiveUser = user.role === database_enum_1.UserRole.ADMIN && s && !b
             ? {
                 ...user,
                 role: database_enum_1.UserRole.DIRECTOR,
-                schoolId,
+                schoolId: s,
                 branchId: null,
             }
             : user;
@@ -282,21 +331,39 @@ let AnalyticsService = class AnalyticsService {
         };
     }
     async listExpiringDocuments(user, schoolId, branchId, days = branch_dashboard_service_1.NEAR_EXPIRY_DAYS, limit = 50) {
-        const loc = this.assertSchoolScope(user, schoolId, branchId);
+        const s = schoolId?.trim() || undefined;
+        const b = branchId?.trim() || undefined;
+        const loc = user.role === database_enum_1.UserRole.ADMIN && !s && !b
+            ? {}
+            : this.assertSchoolScope(user, s, b);
         const now = new Date();
         const until = new Date(now);
         until.setDate(until.getDate() + Math.min(Math.max(days, 1), 365));
         return this.documentService.findExpiringInScope(loc, now, until, limit);
     }
     async listExpiredDocuments(user, schoolId, branchId, limit = 50) {
-        const loc = this.assertSchoolScope(user, schoolId, branchId);
+        const s = schoolId?.trim() || undefined;
+        const b = branchId?.trim() || undefined;
+        const loc = user.role === database_enum_1.UserRole.ADMIN && !s && !b
+            ? {}
+            : this.assertSchoolScope(user, s, b);
         const now = new Date();
         return this.documentService.findExpiredInScope(loc, now, limit);
     }
     async getSchoolDashboardAnalytics(user, schoolId) {
-        const sid = schoolId ?? user.schoolId;
+        const q = schoolId?.trim() || undefined;
+        if (q && !this.isUuid(q)) {
+            throw new common_1.BadRequestException('Invalid schoolId');
+        }
+        if (user.role === database_enum_1.UserRole.ADMIN && !q) {
+            return this.getPlatformDashboardAnalytics();
+        }
+        const sid = q ?? user.schoolId;
         if (!sid) {
             throw new common_1.ForbiddenException('schoolId is required');
+        }
+        if (!this.isUuid(sid)) {
+            throw new common_1.BadRequestException('Invalid schoolId');
         }
         if (user.role !== database_enum_1.UserRole.ADMIN) {
             if (user.role === database_enum_1.UserRole.DIRECTOR ||

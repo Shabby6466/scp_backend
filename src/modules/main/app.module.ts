@@ -20,6 +20,7 @@ import { AnalyticsModule } from '../analytics/analytics.module';
 import { ComplianceCategoryModule } from '../compliance-category/compliance-category.module';
 import { InvitationModule } from '../invitation/invitation.module';
 import { StudentParentModule } from '../student-parent/student-parent.module';
+import { AuditEventsModule } from '../audit-events/audit-events.module';
 
 export const imports = [
   MailerModule,
@@ -35,6 +36,7 @@ export const imports = [
   ComplianceCategoryModule,
   InvitationModule,
   StudentParentModule,
+  AuditEventsModule,
 ];
 
 export const adminModulesImports = [
@@ -43,6 +45,7 @@ export const adminModulesImports = [
   BranchModule,
   SettingsModule,
   AnalyticsModule,
+  AuditEventsModule,
 ];
 
 @Module({

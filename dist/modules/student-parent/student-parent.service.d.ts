@@ -14,6 +14,7 @@ export declare class StudentParentService {
     constructor(studentParentRepository: Repository<StudentParent>, userService: UserService);
     private assertParentRecord;
     private loadStudentSideUser;
+    isLinked(parentId: string, studentId: string): Promise<boolean>;
     private assertCanAccessParentView;
     private assertCanAccessStudentView;
     listForParent(parentId: string, user: JwtUser): Promise<{

@@ -17,6 +17,7 @@ const branch_module_1 = require("../branch/branch.module");
 const document_type_module_1 = require("../document-type/document-type.module");
 const storage_module_1 = require("../storage/storage.module");
 const mailer_module_1 = require("../mailer/mailer.module");
+const student_parent_module_1 = require("../student-parent/student-parent.module");
 let DocumentModule = class DocumentModule {
 };
 exports.DocumentModule = DocumentModule;
@@ -27,6 +28,7 @@ exports.DocumentModule = DocumentModule = __decorate([
             (0, common_1.forwardRef)(() => user_module_1.UserModule),
             (0, common_1.forwardRef)(() => branch_module_1.BranchModule),
             (0, common_1.forwardRef)(() => document_type_module_1.DocumentTypeModule),
+            (0, common_1.forwardRef)(() => student_parent_module_1.StudentParentModule),
             storage_module_1.StorageModule,
             mailer_module_1.MailerModule,
         ],

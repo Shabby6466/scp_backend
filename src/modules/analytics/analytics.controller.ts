@@ -155,12 +155,13 @@ export class AnalyticsController {
       branchId: string | null;
     },
   ) {
+    const q = this.analytics.parseOptionalQueryUuid(schoolId, 'schoolId');
     const effectiveUser =
-      user.role === UserRole.ADMIN && schoolId
+      user.role === UserRole.ADMIN && q
         ? {
           ...user,
           role: UserRole.DIRECTOR,
-          schoolId,
+          schoolId: q,
           branchId: null as string | null,
         }
         : user;

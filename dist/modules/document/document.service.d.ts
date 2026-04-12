@@ -9,6 +9,7 @@ import { SearchDocumentDto } from './dto/search-document.dto';
 import { UserService } from '../user/user.service';
 import { DocumentTypeService } from '../document-type/document-type.service';
 import { BranchService } from '../branch/branch.service';
+import { StudentParentService } from '../student-parent/student-parent.service';
 type CurrentUser = {
     id: string;
     role: UserRole;
@@ -20,10 +21,11 @@ export declare class DocumentService {
     private readonly documentTypeService;
     private readonly userService;
     private readonly branchService;
+    private readonly studentParent;
     private readonly storage;
     private readonly mailer;
     private readonly logger;
-    constructor(documentRepository: Repository<Document>, documentTypeService: DocumentTypeService, userService: UserService, branchService: BranchService, storage: StorageService, mailer: MailerService);
+    constructor(documentRepository: Repository<Document>, documentTypeService: DocumentTypeService, userService: UserService, branchService: BranchService, studentParent: StudentParentService, storage: StorageService, mailer: MailerService);
     findSummaryDocsByOwnerIds(ownerIds: string[]): Promise<Document[]>;
     findRecentDocsByBranch(branchId: string, limit?: number): Promise<Document[]>;
     findComplianceDocsByOwnerIds(ownerIds: string[]): Promise<Document[]>;

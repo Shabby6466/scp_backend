@@ -84,6 +84,9 @@ let AuthService = AuthService_1 = class AuthService {
         if (!valid) {
             throw new common_1.UnauthorizedException('Invalid credentials');
         }
+        if (user.role === database_enum_1.UserRole.STUDENT) {
+            throw new common_1.UnauthorizedException('Students cannot log in directly');
+        }
         const accessToken = await this.generateAccessToken(user.id, user.email, user.role);
         return {
             user: {
@@ -264,9 +267,8 @@ let AuthService = AuthService_1 = class AuthService {
     }
     async generateAccessToken(userId, email, role, expiryTime) {
         const finalExpiry = expiryTime || this.config.get('JWT_EXPIRATION') || '1d';
-        const accessToken = await this.jwt.signAsync({ uuid: userId, email, role }, {
+        const accessToken = await this.jwt.signAsync({ sub: userId, email, role }, {
             secret: this.config.get('JWT_SECRET') || process.env.JWT_SECRET,
-            subject: 'school',
             expiresIn: finalExpiry,
         });
         return accessToken;

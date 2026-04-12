@@ -1,6 +1,15 @@
-import { ForbiddenException, Injectable, Inject, forwardRef } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
+import { DataSource, IsNull } from 'typeorm';
 import { UserRole } from '../common/enums/database.enum';
+import { School } from '../../entities/school.entity';
+import { User } from '../../entities/user.entity';
+import { Document } from '../../entities/document.entity';
 import { isSchoolDirector } from '../auth/school-scope.util';
 import type { FormsBucket } from './dto/forms-analytics-query.dto';
 import { SchoolService } from '../school/school.service';
@@ -11,6 +20,10 @@ import { DocumentTypeService } from '../document-type/document-type.service';
 import { NEAR_EXPIRY_DAYS } from '../branch/branch-dashboard.service';
 
 export const ANALYTICS_NEAR_EXPIRY_DAYS = 30;
+
+/** Reject obvious non-UUIDs (e.g. route placeholders like `school`) before they hit Postgres. */
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type CurrentUser = {
   id: string;
@@ -40,6 +53,59 @@ export class AnalyticsService {
     @Inject(forwardRef(() => DocumentTypeService))
     private readonly documentTypeService: DocumentTypeService,
   ) { }
+
+  private isUuid(value: string): boolean {
+    return UUID_RE.test(value);
+  }
+
+  /** Reject non-UUID query values (e.g. path segments mistaken for ids) before compliance queries run. */
+  parseOptionalQueryUuid(
+    raw: string | undefined,
+    paramName: string,
+  ): string | undefined {
+    const v = raw?.trim() || undefined;
+    if (v && !this.isUuid(v)) {
+      throw new BadRequestException(`Invalid ${paramName}`);
+    }
+    return v;
+  }
+
+  private async getPlatformDashboardAnalytics() {
+    const schoolRepo = this.dataSource.getRepository(School);
+    const userRepo = this.dataSource.getRepository(User);
+    const docRepo = this.dataSource.getRepository(Document);
+
+    const [
+      totalSchools,
+      pendingSchools,
+      approvedSchools,
+      totalUsers,
+      totalStudents,
+      totalTeachers,
+      totalDocuments,
+      pendingDocuments,
+    ] = await Promise.all([
+      schoolRepo.count(),
+      schoolRepo.count({ where: { isApproved: false } }),
+      schoolRepo.count({ where: { isApproved: true } }),
+      userRepo.count(),
+      userRepo.count({ where: { role: UserRole.STUDENT } }),
+      userRepo.count({ where: { role: UserRole.TEACHER } }),
+      docRepo.count(),
+      docRepo.count({ where: { verifiedAt: IsNull() } }),
+    ]);
+
+    return {
+      totalSchools,
+      pendingSchools,
+      approvedSchools,
+      totalUsers,
+      totalDocuments,
+      pendingDocuments,
+      totalStudents,
+      totalTeachers,
+    };
+  }
 
   resolveScope(user: CurrentUser): ResolvedScope {
     if (user.role === UserRole.ADMIN) {
@@ -289,20 +355,29 @@ export class AnalyticsService {
     schoolId?: string,
     branchId?: string,
   ): { schoolId: string } | { branchId: string } {
+    const s = schoolId?.trim() || undefined;
+    const b = branchId?.trim() || undefined;
+    if (s && !this.isUuid(s)) {
+      throw new BadRequestException('Invalid schoolId');
+    }
+    if (b && !this.isUuid(b)) {
+      throw new BadRequestException('Invalid branchId');
+    }
+
     if (user.role === UserRole.ADMIN) {
-      if (branchId) return { branchId };
-      if (schoolId) return { schoolId };
+      if (b) return { branchId: b };
+      if (s) return { schoolId: s };
       throw new ForbiddenException('schoolId or branchId is required');
     }
     const scope = this.resolveScope(user);
     if (scope.kind === 'school') {
-      if (schoolId && schoolId !== scope.schoolId) {
+      if (s && s !== scope.schoolId) {
         throw new ForbiddenException('Cannot access this school');
       }
       return { schoolId: scope.schoolId };
     }
     if (scope.kind === 'branch' || scope.kind === 'teacher') {
-      if (branchId && branchId !== scope.branchId) {
+      if (b && b !== scope.branchId) {
         throw new ForbiddenException('Cannot access this branch');
       }
       return { branchId: scope.branchId };
@@ -321,13 +396,15 @@ export class AnalyticsService {
     schoolId?: string,
     branchId?: string,
   ) {
-    const loc = this.assertSchoolScope(user, schoolId, branchId);
+    const s = schoolId?.trim() || undefined;
+    const b = branchId?.trim() || undefined;
+    const loc = this.assertSchoolScope(user, s, b);
     const effectiveUser: CurrentUser =
-      user.role === UserRole.ADMIN && schoolId && !branchId
+      user.role === UserRole.ADMIN && s && !b
         ? {
           ...user,
           role: UserRole.DIRECTOR,
-          schoolId,
+          schoolId: s,
           branchId: null,
         }
         : user;
@@ -364,7 +441,12 @@ export class AnalyticsService {
     days = NEAR_EXPIRY_DAYS,
     limit = 50,
   ) {
-    const loc = this.assertSchoolScope(user, schoolId, branchId);
+    const s = schoolId?.trim() || undefined;
+    const b = branchId?.trim() || undefined;
+    const loc =
+      user.role === UserRole.ADMIN && !s && !b
+        ? ({} as { schoolId?: string; branchId?: string })
+        : this.assertSchoolScope(user, s, b);
 
     const now = new Date();
     const until = new Date(now);
@@ -379,7 +461,12 @@ export class AnalyticsService {
     branchId?: string,
     limit = 50,
   ) {
-    const loc = this.assertSchoolScope(user, schoolId, branchId);
+    const s = schoolId?.trim() || undefined;
+    const b = branchId?.trim() || undefined;
+    const loc =
+      user.role === UserRole.ADMIN && !s && !b
+        ? ({} as { schoolId?: string; branchId?: string })
+        : this.assertSchoolScope(user, s, b);
     const now = new Date();
     return this.documentService.findExpiredInScope(loc, now, limit);
   }
@@ -388,9 +475,21 @@ export class AnalyticsService {
     user: CurrentUser,
     schoolId?: string,
   ) {
-    const sid = schoolId ?? user.schoolId;
+    const q = schoolId?.trim() || undefined;
+    if (q && !this.isUuid(q)) {
+      throw new BadRequestException('Invalid schoolId');
+    }
+
+    if (user.role === UserRole.ADMIN && !q) {
+      return this.getPlatformDashboardAnalytics();
+    }
+
+    const sid = q ?? user.schoolId;
     if (!sid) {
       throw new ForbiddenException('schoolId is required');
+    }
+    if (!this.isUuid(sid)) {
+      throw new BadRequestException('Invalid schoolId');
     }
 
     if (user.role !== UserRole.ADMIN) {

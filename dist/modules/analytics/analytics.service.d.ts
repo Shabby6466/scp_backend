@@ -1,5 +1,7 @@
 import { DataSource } from 'typeorm';
 import { UserRole } from '../common/enums/database.enum';
+import { User } from '../../entities/user.entity';
+import { Document } from '../../entities/document.entity';
 import type { FormsBucket } from './dto/forms-analytics-query.dto';
 import { SchoolService } from '../school/school.service';
 import { BranchService } from '../branch/branch.service';
@@ -33,6 +35,9 @@ export declare class AnalyticsService {
     private readonly documentService;
     private readonly documentTypeService;
     constructor(dataSource: DataSource, schoolService: SchoolService, branchService: BranchService, userService: UserService, documentService: DocumentService, documentTypeService: DocumentTypeService);
+    private isUuid;
+    parseOptionalQueryUuid(raw: string | undefined, paramName: string): string | undefined;
+    private getPlatformDashboardAnalytics;
     resolveScope(user: CurrentUser): ResolvedScope;
     private scopeWhereSql;
     private typeFilter;
@@ -54,8 +59,8 @@ export declare class AnalyticsService {
         pendingVerification: number;
     }>;
     getPendingActions(user: CurrentUser): Promise<{
-        recentUploads: import("../../entities/document.entity").Document[];
-        atRiskStaff: import("../../entities/user.entity").User[];
+        recentUploads: Document[];
+        atRiskStaff: User[];
     }>;
     private assertSchoolScope;
     getComplianceStats(user: CurrentUser, schoolId?: string, branchId?: string): Promise<{
@@ -72,9 +77,18 @@ export declare class AnalyticsService {
         verifiedCount: number;
         pendingVerification: number;
     }>;
-    listExpiringDocuments(user: CurrentUser, schoolId?: string, branchId?: string, days?: number, limit?: number): Promise<import("../../entities/document.entity").Document[]>;
-    listExpiredDocuments(user: CurrentUser, schoolId?: string, branchId?: string, limit?: number): Promise<import("../../entities/document.entity").Document[]>;
+    listExpiringDocuments(user: CurrentUser, schoolId?: string, branchId?: string, days?: number, limit?: number): Promise<Document[]>;
+    listExpiredDocuments(user: CurrentUser, schoolId?: string, branchId?: string, limit?: number): Promise<Document[]>;
     getSchoolDashboardAnalytics(user: CurrentUser, schoolId?: string): Promise<{
+        totalSchools: number;
+        pendingSchools: number;
+        approvedSchools: number;
+        totalUsers: number;
+        totalDocuments: number;
+        pendingDocuments: number;
+        totalStudents: number;
+        totalTeachers: number;
+    } | {
         studentCount: number;
         teacherCount: number;
         parentCount: number;

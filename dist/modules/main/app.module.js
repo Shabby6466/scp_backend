@@ -28,6 +28,7 @@ const analytics_module_1 = require("../analytics/analytics.module");
 const compliance_category_module_1 = require("../compliance-category/compliance-category.module");
 const invitation_module_1 = require("../invitation/invitation.module");
 const student_parent_module_1 = require("../student-parent/student-parent.module");
+const audit_events_module_1 = require("../audit-events/audit-events.module");
 exports.imports = [
     mailer_1.MailerModule,
     storage_1.StorageModule,
@@ -42,6 +43,7 @@ exports.imports = [
     compliance_category_module_1.ComplianceCategoryModule,
     invitation_module_1.InvitationModule,
     student_parent_module_1.StudentParentModule,
+    audit_events_module_1.AuditEventsModule,
 ];
 exports.adminModulesImports = [
     school_1.SchoolModule,
@@ -49,6 +51,7 @@ exports.adminModulesImports = [
     branch_module_1.BranchModule,
     settings_1.SettingsModule,
     analytics_module_1.AnalyticsModule,
+    audit_events_module_1.AuditEventsModule,
 ];
 let AppModule = class AppModule {
 };

@@ -46,6 +46,13 @@ export class StudentParentService {
     return student;
   }
 
+  async isLinked(parentId: string, studentId: string): Promise<boolean> {
+    const count = await this.studentParentRepository.count({
+      where: { parentId, studentId },
+    });
+    return count > 0;
+  }
+
   /** Whether `user` may read links involving this parent user id. */
   private async assertCanAccessParentView(parentId: string, user: JwtUser) {
     const parent = await this.assertParentRecord(parentId);

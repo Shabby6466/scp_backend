@@ -8,6 +8,7 @@ import { BranchModule } from '../branch/branch.module';
 import { DocumentTypeModule } from '../document-type/document-type.module';
 import { StorageModule } from '../storage/storage.module';
 import { MailerModule } from '../mailer/mailer.module';
+import { StudentParentModule } from '../student-parent/student-parent.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { MailerModule } from '../mailer/mailer.module';
     forwardRef(() => UserModule),
     forwardRef(() => BranchModule),
     forwardRef(() => DocumentTypeModule),
+    forwardRef(() => StudentParentModule),
     StorageModule,
     MailerModule,
   ],

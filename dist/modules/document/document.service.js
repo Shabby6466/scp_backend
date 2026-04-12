@@ -26,12 +26,14 @@ const mailer_service_1 = require("../mailer/mailer.service");
 const user_service_1 = require("../user/user.service");
 const document_type_service_1 = require("../document-type/document-type.service");
 const branch_service_1 = require("../branch/branch.service");
+const student_parent_service_1 = require("../student-parent/student-parent.service");
 let DocumentService = DocumentService_1 = class DocumentService {
-    constructor(documentRepository, documentTypeService, userService, branchService, storage, mailer) {
+    constructor(documentRepository, documentTypeService, userService, branchService, studentParent, storage, mailer) {
         this.documentRepository = documentRepository;
         this.documentTypeService = documentTypeService;
         this.userService = userService;
         this.branchService = branchService;
+        this.studentParent = studentParent;
         this.storage = storage;
         this.mailer = mailer;
         this.logger = new common_1.Logger(DocumentService_1.name);
@@ -425,6 +427,11 @@ let DocumentService = DocumentService_1 = class DocumentService {
             throw new common_1.NotFoundException('Branch not found');
         if ((0, school_scope_util_1.canManageBranchLikeDirector)(user, branch))
             return;
+        if (user.role === database_enum_1.UserRole.PARENT) {
+            if (await this.studentParent.isLinked(user.id, ownerUserId)) {
+                return;
+            }
+        }
         throw new common_1.ForbiddenException('Cannot access this document');
     }
     async ensureCanManageBranch(branchId, user) {
@@ -546,10 +553,12 @@ exports.DocumentService = DocumentService = DocumentService_1 = __decorate([
     __param(1, (0, common_1.Inject)((0, common_1.forwardRef)(() => document_type_service_1.DocumentTypeService))),
     __param(2, (0, common_1.Inject)((0, common_1.forwardRef)(() => user_service_1.UserService))),
     __param(3, (0, common_1.Inject)((0, common_1.forwardRef)(() => branch_service_1.BranchService))),
+    __param(4, (0, common_1.Inject)((0, common_1.forwardRef)(() => student_parent_service_1.StudentParentService))),
     __metadata("design:paramtypes", [typeorm_2.Repository,
         document_type_service_1.DocumentTypeService,
         user_service_1.UserService,
         branch_service_1.BranchService,
+        student_parent_service_1.StudentParentService,
         storage_service_1.StorageService,
         mailer_service_1.MailerService])
 ], DocumentService);

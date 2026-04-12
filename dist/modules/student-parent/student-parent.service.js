@@ -39,6 +39,12 @@ let StudentParentService = class StudentParentService {
         }
         return student;
     }
+    async isLinked(parentId, studentId) {
+        const count = await this.studentParentRepository.count({
+            where: { parentId, studentId },
+        });
+        return count > 0;
+    }
     async assertCanAccessParentView(parentId, user) {
         const parent = await this.assertParentRecord(parentId);
         if (user.role === database_enum_1.UserRole.ADMIN) {

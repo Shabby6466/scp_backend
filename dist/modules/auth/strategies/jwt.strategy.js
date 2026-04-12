@@ -31,8 +31,12 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
         this.userRepository = userRepository;
     }
     async validate(payload) {
+        const userId = payload.uuid || (payload.sub !== 'school' ? payload.sub : null);
+        if (!userId) {
+            throw new common_1.UnauthorizedException('Invalid session');
+        }
         const user = await this.userRepository.findOne({
-            where: { id: payload.sub },
+            where: { id: userId },
             select: {
                 id: true,
                 email: true,

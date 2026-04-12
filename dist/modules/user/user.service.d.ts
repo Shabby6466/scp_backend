@@ -137,4 +137,5 @@ export declare class UserService {
         schoolId?: string;
         branchId?: string;
     }, limit?: number): Promise<User[]>;
+    remove(targetId: string, actorId: string): Promise<import("typeorm").UpdateResult>;
 }

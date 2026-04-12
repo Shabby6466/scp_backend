@@ -50,11 +50,12 @@ let AnalyticsController = class AnalyticsController {
         return this.analytics.listExpiredDocuments(user, schoolId, branchId, limit);
     }
     getComplianceRoot(schoolId, user) {
-        const effectiveUser = user.role === database_enum_1.UserRole.ADMIN && schoolId
+        const q = this.analytics.parseOptionalQueryUuid(schoolId, 'schoolId');
+        const effectiveUser = user.role === database_enum_1.UserRole.ADMIN && q
             ? {
                 ...user,
                 role: database_enum_1.UserRole.DIRECTOR,
-                schoolId,
+                schoolId: q,
                 branchId: null,
             }
             : user;

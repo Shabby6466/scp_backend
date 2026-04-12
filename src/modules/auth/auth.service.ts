@@ -89,6 +89,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (user.role === UserRole.STUDENT) {
+      throw new UnauthorizedException('Students cannot log in directly');
+    }
+
     const accessToken = await this.generateAccessToken(
       user.id,
       user.email,
@@ -340,10 +344,9 @@ export class AuthService {
   ) {
     const finalExpiry = expiryTime || this.config.get<string>('JWT_EXPIRATION') || '1d';
     const accessToken = await this.jwt.signAsync(
-      { uuid: userId, email, role },
+      { sub: userId, email, role },
       {
         secret: this.config.get<string>('JWT_SECRET') || process.env.JWT_SECRET,
-        subject: 'school',
         expiresIn: finalExpiry as any,
       },
     );
