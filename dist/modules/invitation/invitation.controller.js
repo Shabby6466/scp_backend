@@ -54,6 +54,22 @@ __decorate([
     (0, class_validator_1.IsEmail)(),
     __metadata("design:type", String)
 ], SendDirectorInvitationDto.prototype, "email", void 0);
+class SendTeacherInvitationDto {
+}
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(1),
+    __metadata("design:type", String)
+], SendTeacherInvitationDto.prototype, "schoolId", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], SendTeacherInvitationDto.prototype, "branchId", void 0);
+__decorate([
+    (0, class_validator_1.IsEmail)(),
+    __metadata("design:type", String)
+], SendTeacherInvitationDto.prototype, "email", void 0);
 let InvitationController = class InvitationController {
     constructor(invitationService) {
         this.invitationService = invitationService;
@@ -67,6 +83,14 @@ let InvitationController = class InvitationController {
             branchId: dto.branchId,
             email: dto.email,
             role: database_enum_1.UserRole.PARENT,
+        }, user);
+    }
+    sendTeacher(dto, user) {
+        return this.invitationService.send({
+            schoolId: dto.schoolId,
+            branchId: dto.branchId,
+            email: dto.email,
+            role: database_enum_1.UserRole.TEACHER,
         }, user);
     }
     sendDirector(dto, user) {
@@ -108,6 +132,15 @@ __decorate([
     __metadata("design:paramtypes", [SendParentInvitationDto, Object]),
     __metadata("design:returntype", void 0)
 ], InvitationController.prototype, "sendParent", null);
+__decorate([
+    (0, common_1.Post)('send-teacher'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [SendTeacherInvitationDto, Object]),
+    __metadata("design:returntype", void 0)
+], InvitationController.prototype, "sendTeacher", null);
 __decorate([
     (0, common_1.Post)('send-director'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),

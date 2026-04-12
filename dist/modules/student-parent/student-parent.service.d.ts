@@ -1,7 +1,8 @@
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { UserRole } from '../common/enums/database.enum';
 import { StudentParent } from '../../entities/student-parent.entity';
 import { UserService } from '../user/user.service';
+import type { RegisterChildDto } from './dto/register-child.dto';
 type JwtUser = {
     id: string;
     role: UserRole;
@@ -11,7 +12,8 @@ type JwtUser = {
 export declare class StudentParentService {
     private readonly studentParentRepository;
     private readonly userService;
-    constructor(studentParentRepository: Repository<StudentParent>, userService: UserService);
+    private readonly dataSource;
+    constructor(studentParentRepository: Repository<StudentParent>, userService: UserService, dataSource: DataSource);
     private assertParentRecord;
     private loadStudentSideUser;
     isLinked(parentId: string, studentId: string): Promise<boolean>;
@@ -39,6 +41,12 @@ export declare class StudentParentService {
                 id: string;
                 name: string;
             } | null;
+            studentProfile: {
+                firstName: string | null;
+                lastName: string | null;
+                dateOfBirth: string | null;
+                gradeLevel: string | null;
+            } | null;
         };
     }[]>;
     listForStudent(studentId: string, user: JwtUser): Promise<{
@@ -63,6 +71,27 @@ export declare class StudentParentService {
         relation?: string;
         isPrimary?: boolean;
     }, user: JwtUser): Promise<StudentParent | null>;
+    registerChild(dto: RegisterChildDto, user: JwtUser): Promise<{
+        student: {
+            id: string;
+            name: string | null;
+            email: string;
+            role: UserRole;
+            schoolId: string | null;
+            branchId: string | null;
+            studentProfile: {
+                firstName: string | null;
+                lastName: string | null;
+                dateOfBirth: string | null;
+                gradeLevel: string | null;
+            };
+        };
+        link: {
+            id: string;
+            studentId: string;
+            parentId: string;
+        };
+    }>;
     remove(linkId: string, user: JwtUser): Promise<{
         ok: boolean;
     }>;

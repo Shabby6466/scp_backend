@@ -9,13 +9,32 @@ import {
 } from '@nestjs/common';
 import { UserRole } from '../common/enums/database.enum';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { StudentParentService } from './student-parent.service';
+import { RegisterChildDto } from './dto/register-child.dto';
 
 @Controller('student-parents')
 @UseGuards(JwtAuthGuard)
 export class StudentParentController {
   constructor(private readonly studentParentService: StudentParentService) { }
+
+  @Post('register-child')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.PARENT)
+  registerChild(
+    @Body() dto: RegisterChildDto,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.studentParentService.registerChild(dto, user);
+  }
 
   @Get('parent/:parentId')
   listForParent(

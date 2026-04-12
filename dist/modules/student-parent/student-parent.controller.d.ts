@@ -1,8 +1,35 @@
 import { UserRole } from '../common/enums/database.enum';
 import { StudentParentService } from './student-parent.service';
+import { RegisterChildDto } from './dto/register-child.dto';
 export declare class StudentParentController {
     private readonly studentParentService;
     constructor(studentParentService: StudentParentService);
+    registerChild(dto: RegisterChildDto, user: {
+        id: string;
+        role: UserRole;
+        schoolId: string | null;
+        branchId: string | null;
+    }): Promise<{
+        student: {
+            id: string;
+            name: string | null;
+            email: string;
+            role: UserRole;
+            schoolId: string | null;
+            branchId: string | null;
+            studentProfile: {
+                firstName: string | null;
+                lastName: string | null;
+                dateOfBirth: string | null;
+                gradeLevel: string | null;
+            };
+        };
+        link: {
+            id: string;
+            studentId: string;
+            parentId: string;
+        };
+    }>;
     listForParent(parentId: string, user: {
         id: string;
         role: UserRole;
@@ -29,6 +56,12 @@ export declare class StudentParentController {
             school: {
                 id: string;
                 name: string;
+            } | null;
+            studentProfile: {
+                firstName: string | null;
+                lastName: string | null;
+                dateOfBirth: string | null;
+                gradeLevel: string | null;
             } | null;
         };
     }[]>;

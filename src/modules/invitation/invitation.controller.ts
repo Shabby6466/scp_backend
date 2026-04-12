@@ -43,6 +43,19 @@ class SendDirectorInvitationDto {
   email!: string;
 }
 
+class SendTeacherInvitationDto {
+  @IsString()
+  @MinLength(1)
+  schoolId!: string;
+
+  @IsOptional()
+  @IsString()
+  branchId?: string;
+
+  @IsEmail()
+  email!: string;
+}
+
 @Controller('invitations')
 export class InvitationController {
   constructor(private readonly invitationService: InvitationService) { }
@@ -85,6 +98,32 @@ export class InvitationController {
         branchId: dto.branchId,
         email: dto.email,
         role: UserRole.PARENT,
+      },
+      user,
+    );
+  }
+
+  /** Convenience endpoint for inviting staff (matches legacy `POST /invitations/send-teacher`). */
+  @Post('send-teacher')
+  @UseGuards(JwtAuthGuard)
+  sendTeacher(
+    @Body() dto: SendTeacherInvitationDto,
+    @CurrentUser()
+    user: {
+      id: string;
+      email: string;
+      name: string | null;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.invitationService.send(
+      {
+        schoolId: dto.schoolId,
+        branchId: dto.branchId,
+        email: dto.email,
+        role: UserRole.TEACHER,
       },
       user,
     );

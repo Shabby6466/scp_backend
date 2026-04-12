@@ -1,6 +1,6 @@
-import { AuthModule } from '../auth';
-import { UserModule } from '../user';
-export declare const imports: (typeof AuthModule)[];
-export declare const adminModulesImports: (typeof UserModule)[];
+import { MailerModule } from '../mailer';
+import { SettingsModule } from '../settings';
+export declare const imports: (typeof MailerModule)[];
+export declare const adminModulesImports: (typeof SettingsModule)[];
 export declare class AppModule {
 }

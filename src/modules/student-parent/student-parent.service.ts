@@ -7,11 +7,15 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
+import { randomUUID } from 'crypto';
 import { UserRole } from '../common/enums/database.enum';
 import { StudentParent } from '../../entities/student-parent.entity';
+import { User } from '../../entities/user.entity';
+import { StudentProfile } from '../../entities/student-profile.entity';
 import { isSchoolDirector } from '../auth/school-scope.util';
 import { UserService } from '../user/user.service';
+import type { RegisterChildDto } from './dto/register-child.dto';
 
 type JwtUser = {
   id: string;
@@ -27,6 +31,7 @@ export class StudentParentService {
     private readonly studentParentRepository: Repository<StudentParent>,
     @Inject(forwardRef(() => UserService))
     private readonly userService: UserService,
+    private readonly dataSource: DataSource,
   ) { }
 
   private async assertParentRecord(parentId: string) {
@@ -128,7 +133,12 @@ export class StudentParentService {
 
     const rows = await this.studentParentRepository.find({
       where: { parentId },
-      relations: ['student', 'student.branch', 'student.school'],
+      relations: [
+        'student',
+        'student.branch',
+        'student.school',
+        'student.studentProfile',
+      ],
       order: { createdAt: 'ASC' },
     });
 
@@ -148,6 +158,16 @@ export class StudentParentService {
         schoolId: r.student.schoolId,
         branch: r.student.branch ? { id: r.student.branch.id, name: r.student.branch.name } : null,
         school: r.student.school ? { id: r.student.school.id, name: r.student.school.name } : null,
+        studentProfile: r.student.studentProfile
+          ? {
+            firstName: r.student.studentProfile.firstName,
+            lastName: r.student.studentProfile.lastName,
+            dateOfBirth: r.student.studentProfile.dateOfBirth
+              ? r.student.studentProfile.dateOfBirth.toISOString()
+              : null,
+            gradeLevel: r.student.studentProfile.gradeLevel,
+          }
+          : null,
       },
     }));
   }
@@ -210,6 +230,77 @@ export class StudentParentService {
     return this.studentParentRepository.findOne({
       where: { id: created.id },
       relations: ['student', 'parent'],
+    });
+  }
+
+  /**
+   * Parent registers a child user (no login), with profile and parent link.
+   * School/branch can be assigned later by the school.
+   */
+  async registerChild(dto: RegisterChildDto, user: JwtUser) {
+    if (user.role !== UserRole.PARENT) {
+      throw new ForbiddenException('Only a parent can register a child');
+    }
+    const parent = await this.assertParentRecord(user.id);
+    if (parent.role !== UserRole.PARENT) {
+      throw new ForbiddenException('Only a parent can register a child');
+    }
+
+    const first = dto.firstName.trim();
+    const last = dto.lastName.trim();
+    const name = `${first} ${last}`.trim();
+    const email = `student+${randomUUID()}@child.internal`;
+
+    const dob = new Date(`${dto.dateOfBirth}T12:00:00.000Z`);
+    if (Number.isNaN(dob.getTime())) {
+      throw new BadRequestException('Invalid dateOfBirth');
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      const student = manager.create(User, {
+        email,
+        name,
+        role: UserRole.STUDENT,
+        schoolId: null,
+        branchId: null,
+        emailVerifiedAt: new Date(),
+      });
+      await manager.save(student);
+
+      const profile = manager.create(StudentProfile, {
+        userId: student.id,
+        firstName: first,
+        lastName: last,
+        dateOfBirth: dob,
+        gradeLevel: dto.gradeLevel?.trim() || null,
+      });
+      await manager.save(profile);
+
+      const link = manager.create(StudentParent, {
+        studentId: student.id,
+        parentId: user.id,
+        relation: 'parent',
+        isPrimary: true,
+      });
+      await manager.save(link);
+
+      return {
+        student: {
+          id: student.id,
+          name: student.name,
+          email: student.email,
+          role: student.role,
+          schoolId: student.schoolId,
+          branchId: student.branchId,
+          studentProfile: {
+            firstName: profile.firstName,
+            lastName: profile.lastName,
+            dateOfBirth: profile.dateOfBirth?.toISOString() ?? null,
+            gradeLevel: profile.gradeLevel,
+          },
+        },
+        link: { id: link.id, studentId: link.studentId, parentId: link.parentId },
+      };
     });
   }
 

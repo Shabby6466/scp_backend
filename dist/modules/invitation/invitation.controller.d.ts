@@ -13,6 +13,11 @@ declare class SendDirectorInvitationDto {
     schoolId: string;
     email: string;
 }
+declare class SendTeacherInvitationDto {
+    schoolId: string;
+    branchId?: string;
+    email: string;
+}
 export declare class InvitationController {
     private readonly invitationService;
     constructor(invitationService: InvitationService);
@@ -42,6 +47,31 @@ export declare class InvitationController {
         deletedAt?: Date | null;
     }>;
     sendParent(dto: SendParentInvitationDto, user: {
+        id: string;
+        email: string;
+        name: string | null;
+        role: UserRole;
+        schoolId: string | null;
+        branchId: string | null;
+    }): Promise<{
+        status: string;
+        email: string;
+        role: UserRole;
+        token: string;
+        expiresAt: Date;
+        acceptedAt: Date | null;
+        schoolId: string;
+        branchId: string | null;
+        sentById: string;
+        school: import("../../entities/school.entity").School;
+        branch: import("../../entities/branch.entity").Branch;
+        sentBy: import("../../entities/user.entity").User;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt?: Date | null;
+    }>;
+    sendTeacher(dto: SendTeacherInvitationDto, user: {
         id: string;
         email: string;
         name: string | null;
