@@ -1,0 +1,36 @@
+import { BaseEntity } from './base.entity';
+import { User } from './user.entity';
+import { Branch } from './branch.entity';
+import { ComplianceRequirement } from './compliance-requirement.entity';
+import { InspectionType } from './inspection-type.entity';
+import { CertificationType } from './certification-type.entity';
+import { TeacherPosition } from './teacher-position.entity';
+import { TeacherEligibilityProfile } from './teacher-eligibility-profile.entity';
+export declare class School extends BaseEntity {
+    name: string;
+    email: string | null;
+    phone: string | null;
+    address: string | null;
+    city: string | null;
+    state: string | null;
+    zipCode: string | null;
+    website: string | null;
+    licenseNumber: string | null;
+    certificationNumber: string | null;
+    minAge: number | null;
+    maxAge: number | null;
+    totalCapacity: number | null;
+    primaryColor: string | null;
+    logoUrl: string | null;
+    isApproved: boolean;
+    approvedAt: Date | null;
+    approvedBy: string | null;
+    deletedBy: string | null;
+    users: User[];
+    branches: Branch[];
+    complianceRequirements: ComplianceRequirement[];
+    inspectionTypes: InspectionType[];
+    certificationTypes: CertificationType[];
+    teacherPositions: TeacherPosition[];
+    eligibilityProfiles: TeacherEligibilityProfile[];
+}

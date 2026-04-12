@@ -1,0 +1,184 @@
+import {
+  Controller,
+  DefaultValuePipe,
+  Get,
+  ParseIntPipe,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { UserRole } from '../common/enums/database.enum';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AnalyticsService } from './analytics.service';
+import { FormsAnalyticsQueryDto } from './dto/forms-analytics-query.dto';
+
+@Controller('analytics')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(
+  UserRole.ADMIN,
+  UserRole.DIRECTOR,
+  UserRole.BRANCH_DIRECTOR,
+  UserRole.TEACHER,
+)
+export class AnalyticsController {
+  constructor(private readonly analytics: AnalyticsService) { }
+
+  @Get('forms/submissions')
+  submissions(
+    @Query() q: FormsAnalyticsQueryDto,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.analytics.submissions(
+      user,
+      new Date(q.from),
+      new Date(q.to),
+      q.bucket,
+      q.documentTypeId,
+    );
+  }
+
+  @Get('forms/by-uploader')
+  byUploader(
+    @Query() q: FormsAnalyticsQueryDto,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.analytics.byUploader(
+      user,
+      new Date(q.from),
+      new Date(q.to),
+      q.documentTypeId,
+    );
+  }
+
+  @Get('forms/expiry-by-type')
+  expiryByType(
+    @Query('documentTypeId') documentTypeId: string | undefined,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.analytics.expiryByType(user, documentTypeId);
+  }
+
+  @Get('compliance/summary')
+  getComplianceSummary(@CurrentUser() user: any) {
+    return this.analytics.getComplianceSummary(user);
+  }
+
+  @Get('compliance/pending-actions')
+  getPendingActions(@CurrentUser() user: any) {
+    return this.analytics.getPendingActions(user);
+  }
+
+  /** CRM / dashboard compatibility — aggregated compliance with expiring/expired counts. */
+  @Get('compliance/stats')
+  getComplianceStats(
+    @Query('schoolId') schoolId: string | undefined,
+    @Query('branchId') branchId: string | undefined,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.analytics.getComplianceStats(user, schoolId, branchId);
+  }
+
+  @Get('documents/expiring')
+  listExpiringDocuments(
+    @Query('schoolId') schoolId: string | undefined,
+    @Query('branchId') branchId: string | undefined,
+    @Query('days', new DefaultValuePipe(30), ParseIntPipe) days: number,
+    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.analytics.listExpiringDocuments(
+      user,
+      schoolId,
+      branchId,
+      days,
+      limit,
+    );
+  }
+
+  @Get('documents/expired')
+  listExpiredDocuments(
+    @Query('schoolId') schoolId: string | undefined,
+    @Query('branchId') branchId: string | undefined,
+    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.analytics.listExpiredDocuments(user, schoolId, branchId, limit);
+  }
+
+  /** Alias for older clients that called `GET /analytics/compliance?schoolId=` */
+  @Get('compliance')
+  getComplianceRoot(
+    @Query('schoolId') schoolId: string | undefined,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    const effectiveUser =
+      user.role === UserRole.ADMIN && schoolId
+        ? {
+          ...user,
+          role: UserRole.DIRECTOR,
+          schoolId,
+          branchId: null as string | null,
+        }
+        : user;
+    return this.analytics.getComplianceSummary(effectiveUser);
+  }
+
+  /** School-level dashboard metrics for CRM (counts, expiring staff, etc.). */
+  @Get('dashboard')
+  getSchoolDashboard(
+    @Query('schoolId') schoolId: string | undefined,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.analytics.getSchoolDashboardAnalytics(user, schoolId);
+  }
+}
