@@ -50,7 +50,7 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({
         name: 'school_id',
-        type: 'varchar'
+        type: 'uuid'
     }),
     (0, typeorm_1.Index)(),
     __metadata("design:type", String)
@@ -58,7 +58,7 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({
         name: 'created_by_id',
-        type: 'varchar'
+        type: 'uuid'
     }),
     (0, typeorm_1.Index)(),
     __metadata("design:type", String)

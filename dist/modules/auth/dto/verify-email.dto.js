@@ -10,15 +10,18 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VerifyEmailDto = void 0;
+const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 class VerifyEmailDto {
 }
 exports.VerifyEmailDto = VerifyEmailDto;
 __decorate([
+    (0, swagger_1.ApiProperty)({ example: 'john.doe@example.com', description: 'User email' }),
     (0, class_validator_1.IsEmail)(),
     __metadata("design:type", String)
 ], VerifyEmailDto.prototype, "email", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: '123456', description: '6-digit verification code' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.Length)(6, 6),
@@ -26,12 +29,14 @@ __decorate([
     __metadata("design:type", String)
 ], VerifyEmailDto.prototype, "code", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'a-long-token-string', description: 'Verification token from email link' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MinLength)(32, { message: 'Invalid token' }),
     __metadata("design:type", String)
 ], VerifyEmailDto.prototype, "token", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'NewPassword123', description: 'New password if setting it during verification' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MinLength)(8, { message: 'Password must be at least 8 characters' }),

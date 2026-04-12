@@ -10,26 +10,31 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PresignDto = void 0;
+const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 class PresignDto {
 }
 exports.PresignDto = PresignDto;
 __decorate([
+    (0, swagger_1.ApiProperty)({ example: 'uuid-of-owner', description: 'ID of the user who owns the document' }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], PresignDto.prototype, "ownerUserId", void 0);
 __decorate([
+    (0, swagger_1.ApiProperty)({ example: 'uuid-of-document-type', description: 'ID of the document type' }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], PresignDto.prototype, "documentTypeId", void 0);
 __decorate([
+    (0, swagger_1.ApiProperty)({ example: 'clearance_certificate.pdf', description: 'Original filename for the file' }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], PresignDto.prototype, "fileName", void 0);
 __decorate([
+    (0, swagger_1.ApiProperty)({ example: 'application/pdf', description: 'MIME type of the file' }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)

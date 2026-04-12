@@ -45,22 +45,22 @@ __decorate([
     __metadata("design:type", Number)
 ], DocumentType.prototype, "sortOrder", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'school_id', nullable: true, type: 'varchar' }),
+    (0, typeorm_1.Column)({ name: 'school_id', nullable: true, type: 'uuid' }),
     (0, typeorm_1.Index)(),
     __metadata("design:type", Object)
 ], DocumentType.prototype, "schoolId", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'branch_id', nullable: true, type: 'varchar' }),
+    (0, typeorm_1.Column)({ name: 'branch_id', nullable: true, type: 'uuid' }),
     (0, typeorm_1.Index)(),
     __metadata("design:type", Object)
 ], DocumentType.prototype, "branchId", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'created_by_id', nullable: true, type: 'varchar' }),
+    (0, typeorm_1.Column)({ name: 'created_by_id', nullable: true, type: 'uuid' }),
     (0, typeorm_1.Index)(),
     __metadata("design:type", Object)
 ], DocumentType.prototype, "createdById", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'category_id', nullable: true, type: 'varchar' }),
+    (0, typeorm_1.Column)({ name: 'category_id', nullable: true, type: 'uuid' }),
     (0, typeorm_1.Index)(),
     __metadata("design:type", Object)
 ], DocumentType.prototype, "categoryId", void 0);
@@ -89,15 +89,17 @@ let Document = class Document extends base_entity_1.BaseEntity {
 };
 exports.Document = Document;
 __decorate([
-    (0, typeorm_1.Column)({ name: 'owner_user_id',
-        type: 'varchar'
+    (0, typeorm_1.Column)({
+        name: 'owner_user_id',
+        type: 'uuid'
     }),
     (0, typeorm_1.Index)(),
     __metadata("design:type", String)
 ], Document.prototype, "ownerUserId", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'document_type_id',
-        type: 'varchar'
+    (0, typeorm_1.Column)({
+        name: 'document_type_id',
+        type: 'uuid'
     }),
     (0, typeorm_1.Index)(),
     __metadata("design:type", String)
@@ -135,8 +137,9 @@ __decorate([
     __metadata("design:type", Object)
 ], Document.prototype, "verifiedAt", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'uploaded_by_user_id',
-        type: 'varchar'
+    (0, typeorm_1.Column)({
+        name: 'uploaded_by_user_id',
+        type: 'uuid'
     }),
     (0, typeorm_1.Index)(),
     __metadata("design:type", String)

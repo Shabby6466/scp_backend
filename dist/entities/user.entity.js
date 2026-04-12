@@ -64,15 +64,15 @@ __decorate([
     __metadata("design:type", Array)
 ], User.prototype, "authorities", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'school_id', nullable: true, type: 'varchar' }),
+    (0, typeorm_1.Column)({ name: 'school_id', nullable: true, type: 'uuid' }),
     __metadata("design:type", Object)
 ], User.prototype, "schoolId", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'branch_id', nullable: true, type: 'varchar' }),
+    (0, typeorm_1.Column)({ name: 'branch_id', nullable: true, type: 'uuid' }),
     __metadata("design:type", Object)
 ], User.prototype, "branchId", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'assigned_by_id', nullable: true, type: 'varchar' }),
+    (0, typeorm_1.Column)({ name: 'assigned_by_id', nullable: true, type: 'uuid' }),
     __metadata("design:type", Object)
 ], User.prototype, "assignedById", void 0);
 __decorate([
@@ -95,7 +95,7 @@ __decorate([
     __metadata("design:type", Object)
 ], User.prototype, "emailVerifiedAt", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'deleted_by', nullable: true, type: 'varchar' }),
+    (0, typeorm_1.Column)({ name: 'deleted_by', nullable: true, type: 'uuid' }),
     __metadata("design:type", Object)
 ], User.prototype, "deletedBy", void 0);
 __decorate([

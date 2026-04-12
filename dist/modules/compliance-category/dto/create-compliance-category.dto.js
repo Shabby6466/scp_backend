@@ -10,37 +10,44 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateComplianceCategoryDto = void 0;
+const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 class CreateComplianceCategoryDto {
 }
 exports.CreateComplianceCategoryDto = CreateComplianceCategoryDto;
 __decorate([
+    (0, swagger_1.ApiProperty)({ example: 'Health & Safety', description: 'Name of the compliance category' }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateComplianceCategoryDto.prototype, "name", void 0);
 __decorate([
+    (0, swagger_1.ApiProperty)({ example: 'health-safety', description: 'Unique slug for the category' }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateComplianceCategoryDto.prototype, "slug", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'Documents related to health and safety regulations', description: 'Description of the category' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateComplianceCategoryDto.prototype, "description", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'shield-check', description: 'Icon name or identifier' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateComplianceCategoryDto.prototype, "icon", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 1, description: 'Display order of the category' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsInt)(),
     (0, class_validator_1.Min)(0),
     __metadata("design:type", Number)
 ], CreateComplianceCategoryDto.prototype, "sortOrder", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'uuid-of-school', description: 'Filter by school ID' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)

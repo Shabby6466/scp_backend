@@ -264,7 +264,7 @@ let AuthService = AuthService_1 = class AuthService {
     }
     async generateAccessToken(userId, email, role, expiryTime) {
         const finalExpiry = expiryTime || this.config.get('JWT_EXPIRATION') || '1d';
-        const accessToken = await this.jwt.signAsync({ uuid: userId, sub: userId, email, role }, {
+        const accessToken = await this.jwt.signAsync({ uuid: userId, email, role }, {
             secret: this.config.get('JWT_SECRET') || process.env.JWT_SECRET,
             subject: 'school',
             expiresIn: finalExpiry,

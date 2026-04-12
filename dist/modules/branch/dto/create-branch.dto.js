@@ -10,16 +10,19 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateBranchDto = void 0;
+const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 class CreateBranchDto {
 }
 exports.CreateBranchDto = CreateBranchDto;
 __decorate([
+    (0, swagger_1.ApiProperty)({ example: 'Main Branch', description: 'Name of the branch' }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MinLength)(1),
     __metadata("design:type", String)
 ], CreateBranchDto.prototype, "name", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'uuid-of-director', description: 'ID of the branch director user' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MinLength)(1),

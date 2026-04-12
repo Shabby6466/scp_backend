@@ -50,21 +50,17 @@ __decorate([
     __metadata("design:type", Object)
 ], Invitation.prototype, "acceptedAt", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'school_id',
-        type: 'varchar'
-    }),
+    (0, typeorm_1.Column)({ name: 'school_id', type: 'uuid' }),
     (0, typeorm_1.Index)(),
     __metadata("design:type", String)
 ], Invitation.prototype, "schoolId", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'branch_id', nullable: true, type: 'varchar' }),
+    (0, typeorm_1.Column)({ name: 'branch_id', nullable: true, type: 'uuid' }),
     (0, typeorm_1.Index)(),
     __metadata("design:type", Object)
 ], Invitation.prototype, "branchId", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'sent_by_id',
-        type: 'varchar'
-    }),
+    (0, typeorm_1.Column)({ name: 'sent_by_id', type: 'uuid' }),
     (0, typeorm_1.Index)(),
     __metadata("design:type", String)
 ], Invitation.prototype, "sentById", void 0);

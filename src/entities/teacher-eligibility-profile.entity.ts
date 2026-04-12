@@ -5,14 +5,10 @@ import { School } from './school.entity';
 
 @Entity('TeacherEligibilityProfile')
 export class TeacherEligibilityProfile extends BaseEntity {
-  @Column({ name: 'user_id', unique: true,
-      type: 'varchar'
-})
+  @Column({ name: 'user_id', unique: true, type: 'uuid' })
   userId!: string;
 
-  @Column({ name: 'school_id',
-      type: 'varchar'
-})
+  @Column({ name: 'school_id', type: 'uuid' })
   @Index()
   schoolId!: string;
 

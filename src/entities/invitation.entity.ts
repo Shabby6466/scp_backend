@@ -31,19 +31,15 @@ export class Invitation extends BaseEntity {
   @Column({ name: 'accepted_at', type: 'timestamp', nullable: true })
   acceptedAt!: Date | null;
 
-  @Column({ name: 'school_id',
-      type: 'varchar'
-})
+  @Column({ name: 'school_id', type: 'uuid' })
   @Index()
   schoolId!: string;
 
-  @Column({ name: 'branch_id', nullable: true , type: 'varchar' })
+  @Column({ name: 'branch_id', nullable: true, type: 'uuid' })
   @Index()
   branchId!: string | null;
 
-  @Column({ name: 'sent_by_id',
-      type: 'varchar'
-})
+  @Column({ name: 'sent_by_id', type: 'uuid' })
   @Index()
   sentById!: string;
 

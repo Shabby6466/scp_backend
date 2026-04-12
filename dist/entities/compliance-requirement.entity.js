@@ -19,16 +19,12 @@ let ComplianceRequirement = class ComplianceRequirement extends base_entity_1.Ba
 };
 exports.ComplianceRequirement = ComplianceRequirement;
 __decorate([
-    (0, typeorm_1.Column)({ name: 'school_id',
-        type: 'varchar'
-    }),
+    (0, typeorm_1.Column)({ name: 'school_id', type: 'uuid' }),
     (0, typeorm_1.Index)(),
     __metadata("design:type", String)
 ], ComplianceRequirement.prototype, "schoolId", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'name',
-        type: 'varchar'
-    }),
+    (0, typeorm_1.Column)({ name: 'name', type: 'varchar' }),
     __metadata("design:type", String)
 ], ComplianceRequirement.prototype, "name", void 0);
 __decorate([
@@ -36,17 +32,17 @@ __decorate([
     __metadata("design:type", Object)
 ], ComplianceRequirement.prototype, "description", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'inspection_type_id', nullable: true, type: 'varchar' }),
+    (0, typeorm_1.Column)({ name: 'inspection_type_id', nullable: true, type: 'uuid' }),
     (0, typeorm_1.Index)(),
     __metadata("design:type", Object)
 ], ComplianceRequirement.prototype, "inspectionTypeId", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'owner_id', nullable: true, type: 'varchar' }),
+    (0, typeorm_1.Column)({ name: 'owner_id', nullable: true, type: 'uuid' }),
     (0, typeorm_1.Index)(),
     __metadata("design:type", Object)
 ], ComplianceRequirement.prototype, "ownerId", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'created_by_id', nullable: true, type: 'varchar' }),
+    (0, typeorm_1.Column)({ name: 'created_by_id', nullable: true, type: 'uuid' }),
     (0, typeorm_1.Index)(),
     __metadata("design:type", Object)
 ], ComplianceRequirement.prototype, "createdById", void 0);

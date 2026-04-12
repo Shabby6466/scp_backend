@@ -10,26 +10,31 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UpdateComplianceCategoryDto = void 0;
+const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 class UpdateComplianceCategoryDto {
 }
 exports.UpdateComplianceCategoryDto = UpdateComplianceCategoryDto;
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'Updated Category Name', description: 'Updated name of the category' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], UpdateComplianceCategoryDto.prototype, "name", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'Updated description for this category', description: 'Updated description' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], UpdateComplianceCategoryDto.prototype, "description", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'shield-check-alt', description: 'Updated icon identifier' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], UpdateComplianceCategoryDto.prototype, "icon", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 2, description: 'Updated display order' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsInt)(),
     (0, class_validator_1.Min)(0),

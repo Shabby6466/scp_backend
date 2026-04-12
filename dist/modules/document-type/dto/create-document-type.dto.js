@@ -10,36 +10,43 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateDocumentTypeDto = void 0;
+const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 const database_enum_1 = require("../../common/enums/database.enum");
 class CreateDocumentTypeDto {
 }
 exports.CreateDocumentTypeDto = CreateDocumentTypeDto;
 __decorate([
+    (0, swagger_1.ApiProperty)({ example: 'Fingerprint Clearance', description: 'Name of the document type' }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateDocumentTypeDto.prototype, "name", void 0);
 __decorate([
+    (0, swagger_1.ApiProperty)({ enum: database_enum_1.UserRole, example: database_enum_1.UserRole.TEACHER, description: 'Target role for this document' }),
     (0, class_validator_1.IsEnum)(database_enum_1.UserRole),
     __metadata("design:type", String)
 ], CreateDocumentTypeDto.prototype, "targetRole", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ enum: database_enum_1.RenewalPeriod, example: database_enum_1.RenewalPeriod.ANNUAL, description: 'Renewal period' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(database_enum_1.RenewalPeriod),
     __metadata("design:type", String)
 ], CreateDocumentTypeDto.prototype, "renewalPeriod", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'uuid-of-school', description: 'School ID' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateDocumentTypeDto.prototype, "schoolId", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'uuid-of-branch', description: 'Branch ID' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateDocumentTypeDto.prototype, "branchId", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'uuid-of-category', description: 'Compliance category ID' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)

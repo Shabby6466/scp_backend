@@ -17,9 +17,7 @@ let InspectionType = class InspectionType extends base_entity_1.BaseEntity {
 };
 exports.InspectionType = InspectionType;
 __decorate([
-    (0, typeorm_1.Column)({ name: 'school_id',
-        type: 'varchar'
-    }),
+    (0, typeorm_1.Column)({ name: 'school_id', type: 'uuid' }),
     (0, typeorm_1.Index)(),
     __metadata("design:type", String)
 ], InspectionType.prototype, "schoolId", void 0);

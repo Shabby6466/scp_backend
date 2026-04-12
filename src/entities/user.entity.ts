@@ -45,13 +45,13 @@ export class User extends BaseEntity {
   })
   authorities!: UserRole[];
 
-  @Column({ name: 'school_id', nullable: true , type: 'varchar' })
+  @Column({ name: 'school_id', nullable: true, type: 'uuid' })
   schoolId!: string | null;
 
-  @Column({ name: 'branch_id', nullable: true , type: 'varchar' })
+  @Column({ name: 'branch_id', nullable: true, type: 'uuid' })
   branchId!: string | null;
 
-  @Column({ name: 'assigned_by_id', nullable: true , type: 'varchar' })
+  @Column({ name: 'assigned_by_id', nullable: true, type: 'uuid' })
   assignedById!: string | null;
 
   @Column({
@@ -70,7 +70,7 @@ export class User extends BaseEntity {
   @Column({ name: 'email_verified_at', type: 'timestamp', nullable: true })
   emailVerifiedAt!: Date | null;
 
-  @Column({ name: 'deleted_by', nullable: true , type: 'varchar' })
+  @Column({ name: 'deleted_by', nullable: true, type: 'uuid' })
   deletedBy!: string | null;
 
   @ManyToOne(() => School, (school) => school.users, { onDelete: 'SET NULL', nullable: true })

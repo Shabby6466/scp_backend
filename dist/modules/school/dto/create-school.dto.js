@@ -10,16 +10,19 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateSchoolDto = void 0;
+const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 class CreateSchoolDto {
 }
 exports.CreateSchoolDto = CreateSchoolDto;
 __decorate([
+    (0, swagger_1.ApiProperty)({ example: 'Greenwood Heights School', description: 'Name of the school' }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MinLength)(1),
     __metadata("design:type", String)
 ], CreateSchoolDto.prototype, "name", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'uuid-of-director', description: 'ID of the school director user' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MinLength)(1),

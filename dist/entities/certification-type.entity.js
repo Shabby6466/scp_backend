@@ -17,9 +17,7 @@ let CertificationType = class CertificationType extends base_entity_1.BaseEntity
 };
 exports.CertificationType = CertificationType;
 __decorate([
-    (0, typeorm_1.Column)({ name: 'school_id',
-        type: 'varchar'
-    }),
+    (0, typeorm_1.Column)({ name: 'school_id', type: 'uuid' }),
     (0, typeorm_1.Index)(),
     __metadata("design:type", String)
 ], CertificationType.prototype, "schoolId", void 0);

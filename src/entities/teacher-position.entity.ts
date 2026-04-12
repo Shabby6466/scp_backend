@@ -5,9 +5,7 @@ import { TeacherProfile } from './teacher-profile.entity';
 
 @Entity('TeacherPosition')
 export class TeacherPosition extends BaseEntity {
-  @Column({ name: 'school_id',
-      type: 'varchar'
-})
+  @Column({ name: 'school_id', type: 'uuid' })
   @Index()
   schoolId!: string;
 

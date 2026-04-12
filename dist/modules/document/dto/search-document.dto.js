@@ -10,6 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SearchDocumentDto = void 0;
+const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 const database_enum_1 = require("../../common/enums/database.enum");
 const class_transformer_1 = require("class-transformer");
@@ -17,47 +18,56 @@ class SearchDocumentDto {
 }
 exports.SearchDocumentDto = SearchDocumentDto;
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'clearance', description: 'Search query for filename' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], SearchDocumentDto.prototype, "query", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'uuid-of-school', description: 'Filter by school ID' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], SearchDocumentDto.prototype, "schoolId", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'uuid-of-branch', description: 'Filter by branch ID' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], SearchDocumentDto.prototype, "branchId", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'uuid-of-document-type', description: 'Filter by document type ID' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], SearchDocumentDto.prototype, "documentTypeId", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: true, description: 'Filter by verification status' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_transformer_1.Transform)(({ value }) => value === 'true' || value === true || (value === 'false' || value === false ? false : undefined)),
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], SearchDocumentDto.prototype, "verified", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ enum: database_enum_1.UserRole, example: database_enum_1.UserRole.TEACHER, description: 'Filter by owner role' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(database_enum_1.UserRole),
     __metadata("design:type", String)
 ], SearchDocumentDto.prototype, "ownerRole", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'pending', description: 'CRM-style status (e.g., pending, approved)' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], SearchDocumentDto.prototype, "status", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 10, description: 'Number of items per page' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_transformer_1.Transform)(({ value }) => parseInt(value, 10)),
     __metadata("design:type", Number)
 ], SearchDocumentDto.prototype, "limit", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 0, description: 'Offset for pagination' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_transformer_1.Transform)(({ value }) => parseInt(value, 10)),
     __metadata("design:type", Number)

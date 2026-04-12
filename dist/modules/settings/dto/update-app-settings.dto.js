@@ -10,16 +10,19 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UpdateAppSettingsDto = void 0;
+const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 class UpdateAppSettingsDto {
 }
 exports.UpdateAppSettingsDto = UpdateAppSettingsDto;
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: true, description: 'Whether OTP email verification is enabled' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], UpdateAppSettingsDto.prototype, "otpEmailVerificationEnabled", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: false, description: 'Whether self-registration is enabled' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)

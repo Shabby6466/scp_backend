@@ -27,19 +27,19 @@ export class DocumentType extends BaseEntity {
 })
   sortOrder!: number;
 
-  @Column({ name: 'school_id', nullable: true , type: 'varchar' })
+  @Column({ name: 'school_id', nullable: true, type: 'uuid' })
   @Index()
   schoolId!: string | null;
 
-  @Column({ name: 'branch_id', nullable: true , type: 'varchar' })
+  @Column({ name: 'branch_id', nullable: true, type: 'uuid' })
   @Index()
   branchId!: string | null;
 
-  @Column({ name: 'created_by_id', nullable: true , type: 'varchar' })
+  @Column({ name: 'created_by_id', nullable: true, type: 'uuid' })
   @Index()
   createdById!: string | null;
 
-  @Column({ name: 'category_id', nullable: true , type: 'varchar' })
+  @Column({ name: 'category_id', nullable: true, type: 'uuid' })
   @Index()
   categoryId!: string | null;
 
@@ -61,15 +61,17 @@ export class DocumentType extends BaseEntity {
 
 @Entity('Document')
 export class Document extends BaseEntity {
-  @Column({ name: 'owner_user_id',
-      type: 'varchar'
-})
+  @Column({
+    name: 'owner_user_id',
+    type: 'uuid'
+  })
   @Index()
   ownerUserId!: string;
 
-  @Column({ name: 'document_type_id',
-      type: 'varchar'
-})
+  @Column({
+    name: 'document_type_id',
+    type: 'uuid'
+  })
   @Index()
   documentTypeId!: string;
 
@@ -98,9 +100,10 @@ export class Document extends BaseEntity {
   @Column({ name: 'verified_at', type: 'timestamp', nullable: true })
   verifiedAt!: Date | null;
 
-  @Column({ name: 'uploaded_by_user_id',
-      type: 'varchar'
-})
+  @Column({
+    name: 'uploaded_by_user_id',
+    type: 'uuid'
+  })
   @Index()
   uploadedByUserId!: string;
 

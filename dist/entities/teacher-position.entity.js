@@ -18,9 +18,7 @@ let TeacherPosition = class TeacherPosition extends base_entity_1.BaseEntity {
 };
 exports.TeacherPosition = TeacherPosition;
 __decorate([
-    (0, typeorm_1.Column)({ name: 'school_id',
-        type: 'varchar'
-    }),
+    (0, typeorm_1.Column)({ name: 'school_id', type: 'uuid' }),
     (0, typeorm_1.Index)(),
     __metadata("design:type", String)
 ], TeacherPosition.prototype, "schoolId", void 0);

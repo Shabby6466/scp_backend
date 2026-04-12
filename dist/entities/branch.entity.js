@@ -24,8 +24,9 @@ __decorate([
     __metadata("design:type", String)
 ], Branch.prototype, "name", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'school_id',
-        type: 'varchar'
+    (0, typeorm_1.Column)({
+        name: 'school_id',
+        type: 'uuid'
     }),
     (0, typeorm_1.Index)(),
     __metadata("design:type", String)
@@ -83,7 +84,7 @@ __decorate([
     __metadata("design:type", Object)
 ], Branch.prototype, "notes", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'deleted_by', nullable: true, type: 'varchar' }),
+    (0, typeorm_1.Column)({ name: 'deleted_by', nullable: true, type: 'uuid' }),
     __metadata("design:type", Object)
 ], Branch.prototype, "deletedBy", void 0);
 __decorate([

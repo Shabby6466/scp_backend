@@ -1,12 +1,14 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString, MinLength, ValidateIf } from 'class-validator';
 
 export class UpdateUserDto {
+  @ApiPropertyOptional({ example: 'Jane Smith', description: 'Updated full name' })
   @IsOptional()
   @IsString()
-  @MinLength(1, { message: 'Name cannot be empty' })
+  @MinLength(2, { message: 'Name must be at least 2 characters' })
   name?: string;
 
-  /** When set and non-empty, replaces the account password (min 8 characters). */
+  @ApiPropertyOptional({ example: 'NewSecretPassword123', description: 'New password (min 8 characters)' })
   @ValidateIf(
     (o: UpdateUserDto) =>
       typeof o.password === 'string' && o.password.length > 0,
@@ -15,12 +17,12 @@ export class UpdateUserDto {
   @MinLength(8, { message: 'Password must be at least 8 characters' })
   password?: string;
 
-  /** Platform admin only: link a school director to a school (empty string clears). */
+  @ApiPropertyOptional({ example: 'uuid-of-school', description: 'School ID to link user to' })
   @IsOptional()
   @IsString()
   schoolId?: string;
 
-  /** Platform admin only: set teacher or branch director branch (empty string clears). */
+  @ApiPropertyOptional({ example: 'uuid-of-branch', description: 'Branch ID to link user to' })
   @IsOptional()
   @IsString()
   branchId?: string;

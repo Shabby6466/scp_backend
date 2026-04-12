@@ -11,9 +11,10 @@ export class Branch extends BaseEntity {
 })
   name!: string;
 
-  @Column({ name: 'school_id',
-      type: 'varchar'
-})
+  @Column({
+    name: 'school_id',
+    type: 'uuid'
+  })
   @Index()
   schoolId!: string;
 
@@ -57,7 +58,7 @@ export class Branch extends BaseEntity {
   @Column({ name: 'notes', type: 'text', nullable: true })
   notes!: string | null;
 
-  @Column({ name: 'deleted_by', nullable: true , type: 'varchar' })
+  @Column({ name: 'deleted_by', nullable: true, type: 'uuid' })
   deletedBy!: string | null;
 
   @ManyToOne(() => School, (school) => school.branches, { onDelete: 'CASCADE' })

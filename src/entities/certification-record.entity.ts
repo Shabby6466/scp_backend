@@ -5,15 +5,11 @@ import { CertificationType } from './certification-type.entity';
 
 @Entity('CertificationRecord')
 export class CertificationRecord extends BaseEntity {
-  @Column({ name: 'school_id',
-      type: 'varchar'
-})
+  @Column({ name: 'school_id', type: 'uuid' })
   @Index()
   schoolId!: string;
 
-  @Column({ name: 'certification_type_id',
-      type: 'varchar'
-})
+  @Column({ name: 'certification_type_id', type: 'uuid' })
   @Index()
   certificationTypeId!: string;
 

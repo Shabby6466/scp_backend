@@ -18,15 +18,11 @@ let TeacherEligibilityProfile = class TeacherEligibilityProfile extends base_ent
 };
 exports.TeacherEligibilityProfile = TeacherEligibilityProfile;
 __decorate([
-    (0, typeorm_1.Column)({ name: 'user_id', unique: true,
-        type: 'varchar'
-    }),
+    (0, typeorm_1.Column)({ name: 'user_id', unique: true, type: 'uuid' }),
     __metadata("design:type", String)
 ], TeacherEligibilityProfile.prototype, "userId", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'school_id',
-        type: 'varchar'
-    }),
+    (0, typeorm_1.Column)({ name: 'school_id', type: 'uuid' }),
     (0, typeorm_1.Index)(),
     __metadata("design:type", String)
 ], TeacherEligibilityProfile.prototype, "schoolId", void 0);

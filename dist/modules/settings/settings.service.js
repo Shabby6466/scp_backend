@@ -22,10 +22,9 @@ let SettingsService = class SettingsService {
         this.appConfigRepository = appConfigRepository;
     }
     async ensureDefault() {
-        let row = await this.appConfigRepository.findOne({ where: { id: 'default' } });
+        let row = await this.appConfigRepository.findOne({ where: {} });
         if (!row) {
             row = this.appConfigRepository.create({
-                id: 'default',
                 otpEmailVerificationEnabled: true,
                 selfRegistrationEnabled: true,
             });

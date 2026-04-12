@@ -10,11 +10,13 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UpdateSchoolDto = void 0;
+const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 class UpdateSchoolDto {
 }
 exports.UpdateSchoolDto = UpdateSchoolDto;
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'Updated School Name', description: 'Updated name of the school' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MinLength)(1),

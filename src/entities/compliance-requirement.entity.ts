@@ -6,29 +6,25 @@ import { InspectionType } from './inspection-type.entity';
 
 @Entity('ComplianceRequirement')
 export class ComplianceRequirement extends BaseEntity {
-  @Column({ name: 'school_id',
-      type: 'varchar'
-})
+  @Column({ name: 'school_id', type: 'uuid' })
   @Index()
   schoolId!: string;
 
-  @Column({ name: 'name',
-      type: 'varchar'
-})
+  @Column({ name: 'name', type: 'varchar' })
   name!: string;
 
   @Column({ name: 'description', type: 'text', nullable: true })
   description!: string | null;
 
-  @Column({ name: 'inspection_type_id', nullable: true , type: 'varchar' })
+  @Column({ name: 'inspection_type_id', nullable: true, type: 'uuid' })
   @Index()
   inspectionTypeId!: string | null;
 
-  @Column({ name: 'owner_id', nullable: true , type: 'varchar' })
+  @Column({ name: 'owner_id', nullable: true, type: 'uuid' })
   @Index()
   ownerId!: string | null;
 
-  @Column({ name: 'created_by_id', nullable: true , type: 'varchar' })
+  @Column({ name: 'created_by_id', nullable: true, type: 'uuid' })
   @Index()
   createdById!: string | null;
 

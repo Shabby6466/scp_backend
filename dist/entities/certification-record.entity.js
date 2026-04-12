@@ -18,16 +18,12 @@ let CertificationRecord = class CertificationRecord extends base_entity_1.BaseEn
 };
 exports.CertificationRecord = CertificationRecord;
 __decorate([
-    (0, typeorm_1.Column)({ name: 'school_id',
-        type: 'varchar'
-    }),
+    (0, typeorm_1.Column)({ name: 'school_id', type: 'uuid' }),
     (0, typeorm_1.Index)(),
     __metadata("design:type", String)
 ], CertificationRecord.prototype, "schoolId", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'certification_type_id',
-        type: 'varchar'
-    }),
+    (0, typeorm_1.Column)({ name: 'certification_type_id', type: 'uuid' }),
     (0, typeorm_1.Index)(),
     __metadata("design:type", String)
 ], CertificationRecord.prototype, "certificationTypeId", void 0);

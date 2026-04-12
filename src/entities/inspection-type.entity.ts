@@ -4,9 +4,7 @@ import { School } from './school.entity';
 
 @Entity('InspectionType')
 export class InspectionType extends BaseEntity {
-  @Column({ name: 'school_id',
-      type: 'varchar'
-})
+  @Column({ name: 'school_id', type: 'uuid' })
   @Index()
   schoolId!: string;
 

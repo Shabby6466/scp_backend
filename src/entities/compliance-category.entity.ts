@@ -33,14 +33,14 @@ export class ComplianceCategory extends BaseEntity {
 
   @Column({
     name: 'school_id',
-    type: 'varchar'
+    type: 'uuid'
   })
   @Index()
   schoolId!: string;
 
   @Column({
     name: 'created_by_id',
-    type: 'varchar'
+    type: 'uuid'
   })
   @Index()
   createdById!: string;

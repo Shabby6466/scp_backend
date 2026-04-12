@@ -340,7 +340,7 @@ export class AuthService {
   ) {
     const finalExpiry = expiryTime || this.config.get<string>('JWT_EXPIRATION') || '1d';
     const accessToken = await this.jwt.signAsync(
-      { uuid: userId, sub: userId, email, role },
+      { uuid: userId, email, role },
       {
         secret: this.config.get<string>('JWT_SECRET') || process.env.JWT_SECRET,
         subject: 'school',

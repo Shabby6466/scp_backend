@@ -10,23 +10,28 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FormsAnalyticsQueryDto = void 0;
+const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 class FormsAnalyticsQueryDto {
 }
 exports.FormsAnalyticsQueryDto = FormsAnalyticsQueryDto;
 __decorate([
+    (0, swagger_1.ApiProperty)({ example: '2025-01-01', description: 'Start date (YYYY-MM-DD)' }),
     (0, class_validator_1.IsDateString)(),
     __metadata("design:type", String)
 ], FormsAnalyticsQueryDto.prototype, "from", void 0);
 __decorate([
+    (0, swagger_1.ApiProperty)({ example: '2025-01-31', description: 'End date (YYYY-MM-DD)' }),
     (0, class_validator_1.IsDateString)(),
     __metadata("design:type", String)
 ], FormsAnalyticsQueryDto.prototype, "to", void 0);
 __decorate([
+    (0, swagger_1.ApiProperty)({ enum: ['day', 'week', 'month'], example: 'day', description: 'Time bucket for aggregation' }),
     (0, class_validator_1.IsEnum)(['day', 'week', 'month']),
     __metadata("design:type", String)
 ], FormsAnalyticsQueryDto.prototype, "bucket", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'uuid-of-document-type', description: 'Filter by specific document type ID' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
