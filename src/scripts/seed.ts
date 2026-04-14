@@ -1,75 +1,82 @@
 import { DataSource } from 'typeorm';
+import { join } from 'path';
+import * as dotenv from 'dotenv';
 import { User } from '../entities/user.entity';
 import { AppConfig } from '../entities/app-config.entity';
 import { UserRole } from '../modules/common/enums/database.enum';
 import * as bcrypt from 'bcryptjs';
-import * as dotenv from 'dotenv';
-import { join } from 'path';
+import {
+  buildDemoSeedRepositories,
+  seedDemoData,
+} from '../modules/common/demo-seed.util';
 
 dotenv.config();
 
-const dataSource = new DataSource({
-  type: 'postgres',
-  url: process.env.DATABASE_URL,
-  entities: [User, AppConfig], // Add all entities here or use a glob if needed
-  synchronize: false,
-});
-
 async function seed() {
+  const dataSource = new DataSource({
+    type: 'postgres',
+    url: process.env.DATABASE_URL,
+    entities: [join(__dirname, '../entities/*.entity{.ts,.js}')],
+    // Match app: use DB_SYNC=true in .env so an empty DB gets tables before inserts.
+    synchronize: process.env.DB_SYNC === 'true',
+  });
+
   try {
     await dataSource.initialize();
-    console.log('Data Source has been initialized!');
+    console.log('Database connected.');
 
-    const userRepository = dataSource.getRepository(User);
-    const configRepository = dataSource.getRepository(AppConfig);
+    const users = dataSource.getRepository(User);
+    const configs = dataSource.getRepository(AppConfig);
 
-    // 1. Seed Platform Admin
-    const adminEmail = process.env.ADMIN_EMAIL || 'admin@schoolcompliance.com';
+    const adminEmail = (
+      process.env.ADMIN_EMAIL || 'admin@schoolcompliance.com'
+    ).toLowerCase();
     const adminPassword = process.env.ADMIN_PASSWORD || 'Admin@123';
 
-    const existingAdmin = await userRepository.findOne({
+    let admin = await users.findOne({
       where: { email: adminEmail },
     });
 
-    if (!existingAdmin) {
+    if (!admin) {
       console.log('Creating platform admin...');
-      const hashedPassword = await bcrypt.hash(adminPassword, 10);
-      const admin = userRepository.create({
+      const hashedPassword = await bcrypt.hash(adminPassword, 12);
+      admin = users.create({
         email: adminEmail,
         password: hashedPassword,
         name: 'Platform Admin',
         role: UserRole.ADMIN,
         authorities: [UserRole.ADMIN],
+        emailVerifiedAt: new Date(),
       });
-      await userRepository.save(admin);
-      console.log('Platform admin created successfully.');
+      await users.save(admin);
+      console.log('Platform admin created.');
     } else {
       console.log('Platform admin already exists.');
     }
 
-    // 2. Seed Default AppConfig
-    const existingConfig = await configRepository.findOne({
-      where: {}, // Just check if any config exists
-    });
-
+    const existingConfig = await configs.findOne({ where: {} });
     if (!existingConfig) {
-      console.log('Creating initial app config...');
-      const config = configRepository.create({
-        otpEmailVerificationEnabled: true,
-        selfRegistrationEnabled: true,
-      });
-      await configRepository.save(config);
-      console.log('App config created successfully.');
+      console.log('Creating app config...');
+      await configs.save(
+        configs.create({
+          otpEmailVerificationEnabled: true,
+          selfRegistrationEnabled: true,
+        }),
+      );
+      console.log('App config created.');
     } else {
       console.log('App config already exists.');
     }
 
-    console.log('Seeding completed successfully.');
+    await seedDemoData(buildDemoSeedRepositories(dataSource), console);
+
+    console.log('Seeding finished.');
   } catch (error) {
-    console.error('Error during seeding:', error);
+    console.error('Seeding failed:', error);
+    process.exitCode = 1;
   } finally {
     await dataSource.destroy();
   }
 }
 
-seed();
+void seed();

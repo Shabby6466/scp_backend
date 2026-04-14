@@ -2,7 +2,10 @@ import { Entity, Column, OneToOne, JoinColumn, ManyToOne, Index } from 'typeorm'
 import { BaseEntity } from './base.entity';
 import { User } from './user.entity';
 import { TeacherPosition } from './teacher-position.entity';
-import { EmploymentStatus } from '../modules/common/enums/database.enum';
+import {
+  EmploymentStatus,
+  PgEnumName,
+} from '../modules/common/enums/database.enum';
 
 @Entity('TeacherProfile')
 export class TeacherProfile extends BaseEntity {
@@ -30,6 +33,7 @@ export class TeacherProfile extends BaseEntity {
     name: 'employment_status',
     type: 'enum',
     enum: EmploymentStatus,
+    enumName: PgEnumName.EmploymentStatus,
     default: EmploymentStatus.ACTIVE,
   })
   employmentStatus!: EmploymentStatus;

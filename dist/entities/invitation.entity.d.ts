@@ -1,5 +1,5 @@
 import { BaseEntity } from './base.entity';
-import { UserRole, InvitationStatus } from '../modules/common/enums/database.enum';
+import { InvitationStatus, UserRole } from '../modules/common/enums/database.enum';
 import { School } from './school.entity';
 import { Branch } from './branch.entity';
 import { User } from './user.entity';

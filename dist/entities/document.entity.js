@@ -25,7 +25,12 @@ __decorate([
     __metadata("design:type", String)
 ], DocumentType.prototype, "name", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'target_role', type: 'enum', enum: database_enum_1.UserRole }),
+    (0, typeorm_1.Column)({
+        name: 'target_role',
+        type: 'enum',
+        enum: database_enum_1.UserRole,
+        enumName: database_enum_1.PgEnumName.UserRole,
+    }),
     __metadata("design:type", String)
 ], DocumentType.prototype, "targetRole", void 0);
 __decorate([
@@ -35,7 +40,13 @@ __decorate([
     __metadata("design:type", Boolean)
 ], DocumentType.prototype, "isMandatory", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'renewal_period', type: 'enum', enum: database_enum_1.RenewalPeriod, default: database_enum_1.RenewalPeriod.NONE }),
+    (0, typeorm_1.Column)({
+        name: 'renewal_period',
+        type: 'enum',
+        enum: database_enum_1.RenewalPeriod,
+        enumName: database_enum_1.PgEnumName.RenewalPeriod,
+        default: database_enum_1.RenewalPeriod.NONE,
+    }),
     __metadata("design:type", String)
 ], DocumentType.prototype, "renewalPeriod", void 0);
 __decorate([

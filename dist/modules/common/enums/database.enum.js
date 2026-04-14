@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.InvitationStatus = exports.EmploymentStatus = exports.DocumentStatus = exports.RenewalPeriod = exports.StaffPosition = exports.UserRole = void 0;
+exports.PgEnumName = exports.InvitationStatus = exports.EmploymentStatus = exports.DocumentStatus = exports.RenewalPeriod = exports.StaffPosition = exports.UserRole = void 0;
 var UserRole;
 (function (UserRole) {
     UserRole["ADMIN"] = "ADMIN";
@@ -44,4 +44,11 @@ var InvitationStatus;
     InvitationStatus["EXPIRED"] = "EXPIRED";
     InvitationStatus["REVOKED"] = "REVOKED";
 })(InvitationStatus || (exports.InvitationStatus = InvitationStatus = {}));
+exports.PgEnumName = {
+    UserRole: 'user_role_enum',
+    StaffPosition: 'staff_position_enum',
+    RenewalPeriod: 'renewal_period_enum',
+    InvitationStatus: 'invitation_status_enum',
+    EmploymentStatus: 'employment_status_enum',
+};
 //# sourceMappingURL=database.enum.js.map

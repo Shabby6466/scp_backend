@@ -35,3 +35,10 @@ export declare enum InvitationStatus {
     EXPIRED = "EXPIRED",
     REVOKED = "REVOKED"
 }
+export declare const PgEnumName: {
+    readonly UserRole: "user_role_enum";
+    readonly StaffPosition: "staff_position_enum";
+    readonly RenewalPeriod: "renewal_period_enum";
+    readonly InvitationStatus: "invitation_status_enum";
+    readonly EmploymentStatus: "employment_status_enum";
+};

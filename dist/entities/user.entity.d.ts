@@ -1,5 +1,5 @@
 import { BaseEntity } from './base.entity';
-import { UserRole, StaffPosition } from '../modules/common/enums/database.enum';
+import { StaffPosition, UserRole } from '../modules/common/enums/database.enum';
 import { School } from './school.entity';
 import { Branch } from './branch.entity';
 import { Document, DocumentType } from './document.entity';

@@ -1,6 +1,10 @@
 import { Entity, Column, ManyToOne, JoinColumn, Index, OneToMany, ManyToMany, JoinTable } from 'typeorm';
 import { BaseEntity } from './base.entity';
-import { UserRole, RenewalPeriod } from '../modules/common/enums/database.enum';
+import {
+  PgEnumName,
+  RenewalPeriod,
+  UserRole,
+} from '../modules/common/enums/database.enum';
 import { User } from './user.entity';
 import { ComplianceCategory } from './compliance-category.entity';
 
@@ -11,7 +15,12 @@ export class DocumentType extends BaseEntity {
 })
   name!: string;
 
-  @Column({ name: 'target_role', type: 'enum', enum: UserRole })
+  @Column({
+    name: 'target_role',
+    type: 'enum',
+    enum: UserRole,
+    enumName: PgEnumName.UserRole,
+  })
   targetRole!: UserRole;
 
   @Column({ name: 'is_mandatory', default: false,
@@ -19,7 +28,13 @@ export class DocumentType extends BaseEntity {
 })
   isMandatory!: boolean;
 
-  @Column({ name: 'renewal_period', type: 'enum', enum: RenewalPeriod, default: RenewalPeriod.NONE })
+  @Column({
+    name: 'renewal_period',
+    type: 'enum',
+    enum: RenewalPeriod,
+    enumName: PgEnumName.RenewalPeriod,
+    default: RenewalPeriod.NONE,
+  })
   renewalPeriod!: RenewalPeriod;
 
   @Column({ name: 'sort_order', default: 0,

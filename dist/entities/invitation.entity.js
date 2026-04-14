@@ -27,7 +27,12 @@ __decorate([
     __metadata("design:type", String)
 ], Invitation.prototype, "email", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'role', type: 'enum', enum: database_enum_1.UserRole }),
+    (0, typeorm_1.Column)({
+        name: 'role',
+        type: 'enum',
+        enum: database_enum_1.UserRole,
+        enumName: database_enum_1.PgEnumName.UserRole,
+    }),
     __metadata("design:type", String)
 ], Invitation.prototype, "role", void 0);
 __decorate([
@@ -38,7 +43,13 @@ __decorate([
     __metadata("design:type", String)
 ], Invitation.prototype, "token", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'status', type: 'enum', enum: database_enum_1.InvitationStatus, default: database_enum_1.InvitationStatus.PENDING }),
+    (0, typeorm_1.Column)({
+        name: 'status',
+        type: 'enum',
+        enum: database_enum_1.InvitationStatus,
+        enumName: database_enum_1.PgEnumName.InvitationStatus,
+        default: database_enum_1.InvitationStatus.PENDING,
+    }),
     __metadata("design:type", String)
 ], Invitation.prototype, "status", void 0);
 __decorate([

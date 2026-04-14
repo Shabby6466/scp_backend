@@ -1,25 +1,25 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { User } from '../../entities/user.entity';
 import { AppConfig } from '../../entities/app-config.entity';
 import { UserRole } from '../common/enums/database.enum';
+import { buildDemoSeedRepositories, seedDemoData } from './demo-seed.util';
 
 @Injectable()
 export class SeederService implements OnApplicationBootstrap {
   private readonly logger = new Logger(SeederService.name);
 
-  constructor(
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
-    @InjectRepository(AppConfig)
-    private readonly configRepository: Repository<AppConfig>,
-  ) {}
+  constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
   async onApplicationBootstrap() {
     await this.seedAdmin();
     await this.seedAppConfig();
+    await seedDemoData(
+      buildDemoSeedRepositories(this.dataSource),
+      this.logger,
+    );
   }
 
   private async seedAdmin() {
@@ -27,11 +27,14 @@ export class SeederService implements OnApplicationBootstrap {
     const adminPassword = process.env.ADMIN_PASSWORD;
 
     if (!adminEmail || !adminPassword) {
-      this.logger.warn('ADMIN_EMAIL or ADMIN_PASSWORD not set in env — skipping admin seed.');
+      this.logger.warn(
+        'ADMIN_EMAIL or ADMIN_PASSWORD not set in env — skipping admin seed.',
+      );
       return;
     }
 
-    const existing = await this.userRepository.findOne({
+    const users = this.dataSource.getRepository(User);
+    const existing = await users.findOne({
       where: { email: adminEmail.toLowerCase() },
     });
 
@@ -41,7 +44,7 @@ export class SeederService implements OnApplicationBootstrap {
     }
 
     const hashedPassword = await bcrypt.hash(adminPassword, 12);
-    const admin = this.userRepository.create({
+    const admin = users.create({
       email: adminEmail.toLowerCase(),
       password: hashedPassword,
       name: 'Platform Admin',
@@ -50,24 +53,25 @@ export class SeederService implements OnApplicationBootstrap {
       emailVerifiedAt: new Date(),
     });
 
-    await this.userRepository.save(admin);
+    await users.save(admin);
     this.logger.log(`Platform admin created: ${adminEmail}`);
   }
 
   private async seedAppConfig() {
-    const existing = await this.configRepository.findOne({ where: {} });
+    const configs = this.dataSource.getRepository(AppConfig);
+    const existing = await configs.findOne({ where: {} });
 
     if (existing) {
       this.logger.log('App config already exists — skipping.');
       return;
     }
 
-    const config = this.configRepository.create({
+    const config = configs.create({
       otpEmailVerificationEnabled: true,
       selfRegistrationEnabled: true,
     });
 
-    await this.configRepository.save(config);
+    await configs.save(config);
     this.logger.log('Default app config seeded.');
   }
 }

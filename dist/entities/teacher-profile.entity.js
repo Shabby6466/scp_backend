@@ -49,6 +49,7 @@ __decorate([
         name: 'employment_status',
         type: 'enum',
         enum: database_enum_1.EmploymentStatus,
+        enumName: database_enum_1.PgEnumName.EmploymentStatus,
         default: database_enum_1.EmploymentStatus.ACTIVE,
     }),
     __metadata("design:type", String)

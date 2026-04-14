@@ -1,6 +1,10 @@
 import { Entity, Column, ManyToOne, OneToMany, OneToOne, JoinColumn, Index, ManyToMany } from 'typeorm';
 import { BaseEntity } from './base.entity';
-import { UserRole, StaffPosition } from '../modules/common/enums/database.enum';
+import {
+  PgEnumName,
+  StaffPosition,
+  UserRole,
+} from '../modules/common/enums/database.enum';
 import { School } from './school.entity';
 import { Branch } from './branch.entity';
 import { Document, DocumentType } from './document.entity';
@@ -33,6 +37,7 @@ export class User extends BaseEntity {
     name: 'role',
     type: 'enum',
     enum: UserRole,
+    enumName: PgEnumName.UserRole,
   })
   @Index()
   role!: UserRole;
@@ -40,6 +45,7 @@ export class User extends BaseEntity {
   @Column('enum', {
     name: 'authorities',
     enum: UserRole,
+    enumName: PgEnumName.UserRole,
     array: true,
     default: [],
   })
@@ -58,6 +64,7 @@ export class User extends BaseEntity {
     name: 'staff_position',
     type: 'enum',
     enum: StaffPosition,
+    enumName: PgEnumName.StaffPosition,
     nullable: true,
   })
   staffPosition!: StaffPosition | null;

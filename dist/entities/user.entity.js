@@ -50,6 +50,7 @@ __decorate([
         name: 'role',
         type: 'enum',
         enum: database_enum_1.UserRole,
+        enumName: database_enum_1.PgEnumName.UserRole,
     }),
     (0, typeorm_1.Index)(),
     __metadata("design:type", String)
@@ -58,6 +59,7 @@ __decorate([
     (0, typeorm_1.Column)('enum', {
         name: 'authorities',
         enum: database_enum_1.UserRole,
+        enumName: database_enum_1.PgEnumName.UserRole,
         array: true,
         default: [],
     }),
@@ -80,6 +82,7 @@ __decorate([
         name: 'staff_position',
         type: 'enum',
         enum: database_enum_1.StaffPosition,
+        enumName: database_enum_1.PgEnumName.StaffPosition,
         nullable: true,
     }),
     __metadata("design:type", Object)

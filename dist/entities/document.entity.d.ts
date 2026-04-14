@@ -1,5 +1,5 @@
 import { BaseEntity } from './base.entity';
-import { UserRole, RenewalPeriod } from '../modules/common/enums/database.enum';
+import { RenewalPeriod, UserRole } from '../modules/common/enums/database.enum';
 import { User } from './user.entity';
 import { ComplianceCategory } from './compliance-category.entity';
 export declare class DocumentType extends BaseEntity {

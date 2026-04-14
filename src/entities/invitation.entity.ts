@@ -1,6 +1,10 @@
 import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from './base.entity';
-import { UserRole, InvitationStatus } from '../modules/common/enums/database.enum';
+import {
+  InvitationStatus,
+  PgEnumName,
+  UserRole,
+} from '../modules/common/enums/database.enum';
 import { School } from './school.entity';
 import { Branch } from './branch.entity';
 import { User } from './user.entity';
@@ -13,7 +17,12 @@ export class Invitation extends BaseEntity {
   @Index()
   email!: string;
 
-  @Column({ name: 'role', type: 'enum', enum: UserRole })
+  @Column({
+    name: 'role',
+    type: 'enum',
+    enum: UserRole,
+    enumName: PgEnumName.UserRole,
+  })
   role!: UserRole;
 
   @Column({ name: 'token', unique: true,
@@ -22,7 +31,13 @@ export class Invitation extends BaseEntity {
   @Index()
   token!: string;
 
-  @Column({ name: 'status', type: 'enum', enum: InvitationStatus, default: InvitationStatus.PENDING })
+  @Column({
+    name: 'status',
+    type: 'enum',
+    enum: InvitationStatus,
+    enumName: PgEnumName.InvitationStatus,
+    default: InvitationStatus.PENDING,
+  })
   status!: InvitationStatus;
 
   @Column({ name: 'expires_at', type: 'timestamp' })
