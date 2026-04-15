@@ -18,6 +18,8 @@ import { UserService } from '../user/user.service';
 import { DocumentService } from '../document/document.service';
 import { DocumentTypeService } from '../document-type/document-type.service';
 import { NEAR_EXPIRY_DAYS } from '../branch/branch-dashboard.service';
+import { StudentProfile } from '../../entities/student-profile.entity';
+import { StudentProfileService } from '../student-parent/student-profile.service';
 
 export const ANALYTICS_NEAR_EXPIRY_DAYS = 30;
 
@@ -52,6 +54,8 @@ export class AnalyticsService {
     private readonly documentService: DocumentService,
     @Inject(forwardRef(() => DocumentTypeService))
     private readonly documentTypeService: DocumentTypeService,
+    @Inject(forwardRef(() => StudentProfileService))
+    private readonly studentProfileService: StudentProfileService,
   ) { }
 
   private isUuid(value: string): boolean {
@@ -74,6 +78,7 @@ export class AnalyticsService {
     const schoolRepo = this.dataSource.getRepository(School);
     const userRepo = this.dataSource.getRepository(User);
     const docRepo = this.dataSource.getRepository(Document);
+    const studentProfileRepo = this.dataSource.getRepository(StudentProfile);
 
     const [
       totalSchools,
@@ -89,7 +94,7 @@ export class AnalyticsService {
       schoolRepo.count({ where: { isApproved: false } }),
       schoolRepo.count({ where: { isApproved: true } }),
       userRepo.count(),
-      userRepo.count({ where: { role: UserRole.STUDENT } }),
+      studentProfileRepo.count(),
       userRepo.count({ where: { role: UserRole.TEACHER } }),
       docRepo.count(),
       docRepo.count({ where: { verifiedAt: IsNull() } }),
@@ -302,8 +307,13 @@ export class AnalyticsService {
     const scope = this.resolveScope(user);
     const loc = scope.kind === 'school' ? { schoolId: scope.schoolId } : (scope.kind === 'branch' || scope.kind === 'teacher' ? { branchId: scope.branchId } : {});
 
-    // 1. Get counts of users by role
+    // 1. Get counts of users by role + enrolled student profiles (no student login users)
     const roleCounts = await this.userService.countByRoles(loc);
+    const studentProfileCount = await this.studentProfileService.countInScope(loc);
+    const roleCountsWithStudents = {
+      ...roleCounts,
+      [UserRole.STUDENT]: studentProfileCount,
+    };
 
     // 2. Get mandatory document types
     const docTypes = await this.documentTypeService.findMandatory();
@@ -311,7 +321,8 @@ export class AnalyticsService {
     // 3. Calculate total required
     let totalRequired = 0;
     docTypes.forEach((dt) => {
-      totalRequired += roleCounts[dt.targetRole as UserRole] || 0;
+      totalRequired +=
+        roleCountsWithStudents[dt.targetRole as UserRole] || 0;
     });
 
     // 4. Get active verified documents count

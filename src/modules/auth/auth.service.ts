@@ -242,7 +242,7 @@ export class AuthService {
     let ownerDirector: { id: string; name: string | null; email: string } | null = null;
     let ownerBranchDirector: { id: string; name: string | null; email: string } | null = null;
 
-    if (user.role === UserRole.TEACHER || user.role === UserRole.STUDENT) {
+    if (user.role === UserRole.TEACHER) {
       if (user.schoolId) {
         ownerDirector = await this.userService.findDirectorBySchool(user.schoolId);
       }

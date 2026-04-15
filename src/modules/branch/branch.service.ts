@@ -304,10 +304,6 @@ export class BranchService {
 
     if (user.role === UserRole.TEACHER && user.branchId === branch.id) return;
 
-    if (user.role === UserRole.STUDENT && user.branchId === branch.id) {
-      return;
-    }
-
     throw new ForbiddenException('Cannot access this branch');
   }
 }

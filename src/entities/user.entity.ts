@@ -1,13 +1,16 @@
 import { Entity, Column, ManyToOne, OneToMany, OneToOne, JoinColumn, Index, ManyToMany } from 'typeorm';
 import { BaseEntity } from './base.entity';
-import { UserRole, StaffPosition } from '../modules/common/enums/database.enum';
+import {
+  PgEnumName,
+  StaffPosition,
+  UserRole,
+} from '../modules/common/enums/database.enum';
 import { School } from './school.entity';
 import { Branch } from './branch.entity';
 import { Document, DocumentType } from './document.entity';
 import { DirectorProfile } from './director-profile.entity';
 import { BranchDirectorProfile } from './branch-director-profile.entity';
 import { TeacherProfile } from './teacher-profile.entity';
-import { StudentProfile } from './student-profile.entity';
 import { ParentProfile } from './parent-profile.entity';
 import { TeacherEligibilityProfile } from './teacher-eligibility-profile.entity';
 import { StudentParent } from './student-parent.entity';
@@ -33,6 +36,7 @@ export class User extends BaseEntity {
     name: 'role',
     type: 'enum',
     enum: UserRole,
+    enumName: PgEnumName.UserRole,
   })
   @Index()
   role!: UserRole;
@@ -40,6 +44,7 @@ export class User extends BaseEntity {
   @Column('enum', {
     name: 'authorities',
     enum: UserRole,
+    enumName: PgEnumName.UserRole,
     array: true,
     default: [],
   })
@@ -58,6 +63,7 @@ export class User extends BaseEntity {
     name: 'staff_position',
     type: 'enum',
     enum: StaffPosition,
+    enumName: PgEnumName.StaffPosition,
     nullable: true,
   })
   staffPosition!: StaffPosition | null;
@@ -97,17 +103,11 @@ export class User extends BaseEntity {
   @OneToOne(() => TeacherProfile, (profile) => profile.user)
   teacherProfile!: TeacherProfile;
 
-  @OneToOne(() => StudentProfile, (profile) => profile.user)
-  studentProfile!: StudentProfile;
-
   @OneToOne(() => ParentProfile, (profile) => profile.user)
   parentProfile!: ParentProfile;
 
   @OneToOne(() => TeacherEligibilityProfile, (profile) => profile.user)
   eligibilityProfile!: TeacherEligibilityProfile;
-
-  @OneToMany(() => StudentParent, (link) => link.student)
-  studentLinks!: StudentParent[];
 
   @OneToMany(() => StudentParent, (link) => link.parent)
   parentLinks!: StudentParent[];

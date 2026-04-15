@@ -40,3 +40,17 @@ export enum InvitationStatus {
   EXPIRED = 'EXPIRED',
   REVOKED = 'REVOKED',
 }
+
+/**
+ * Shared PostgreSQL enum type names for TypeORM + synchronize.
+ * Every column using the same TS enum must reuse the same `enumName`, or
+ * Postgres will create duplicate types and sync may try to DROP TYPE while
+ * other tables still depend on it.
+ */
+export const PgEnumName = {
+  UserRole: 'user_role_enum',
+  StaffPosition: 'staff_position_enum',
+  RenewalPeriod: 'renewal_period_enum',
+  InvitationStatus: 'invitation_status_enum',
+  EmploymentStatus: 'employment_status_enum',
+} as const;

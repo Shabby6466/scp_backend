@@ -49,6 +49,12 @@ export class UserService {
   ) {
     this.validateCreatePermission(dto, currentUser);
 
+    if (dto.role === UserRole.STUDENT) {
+      throw new BadRequestException(
+        'Students are not login users. Add enrollments via parent registration, invitations, or student profiles.',
+      );
+    }
+
     const email = dto.email.toLowerCase().trim();
     const existing = await this.userRepository.findOne({
       where: { email },
@@ -120,7 +126,7 @@ export class UserService {
       (isSchoolDirector(currentUser) ||
         currentUser.role === UserRole.DIRECTOR) &&
       branchId &&
-      (dto.role === UserRole.TEACHER || dto.role === UserRole.STUDENT)
+      dto.role === UserRole.TEACHER
     ) {
       await this.assertBranchInSchool(branchId, currentUser.schoolId!);
     }
@@ -136,23 +142,9 @@ export class UserService {
       }
     }
 
-    if (
-      currentUser.role === UserRole.BRANCH_DIRECTOR &&
-      dto.role === UserRole.STUDENT
-    ) {
-      if (!branchId || branchId !== currentUser.branchId) {
-        throw new ForbiddenException(
-          'Students must be created for your branch only',
-        );
-      }
-    }
-
     let resolvedSchoolId: string | null = schoolId;
     let resolvedBranchId: string | null = branchId;
-    if (
-      (dto.role === UserRole.TEACHER || dto.role === UserRole.STUDENT) &&
-      branchId
-    ) {
+    if (dto.role === UserRole.TEACHER && branchId) {
       const b = await this.branchService.findOneById(branchId);
       if (!b) {
         throw new NotFoundException('Branch not found');
@@ -173,13 +165,11 @@ export class UserService {
         dto.role === UserRole.DIRECTOR ||
           dto.role === UserRole.BRANCH_DIRECTOR
           ? (schoolId ?? null)
-          : dto.role === UserRole.TEACHER || dto.role === UserRole.STUDENT
+          : dto.role === UserRole.TEACHER
             ? resolvedSchoolId
             : null,
       branchId:
-        dto.role === UserRole.TEACHER ||
-          dto.role === UserRole.STUDENT ||
-          dto.role === UserRole.BRANCH_DIRECTOR
+        dto.role === UserRole.TEACHER || dto.role === UserRole.BRANCH_DIRECTOR
           ? resolvedBranchId
           : null,
       staffPosition: null,
@@ -269,43 +259,9 @@ export class UserService {
         },
       });
     }
-    if (
-      currentUser.role === UserRole.STUDENT &&
-      currentUser.branchId &&
-      currentUser.schoolId
-    ) {
-      return this.userRepository.find({
-        where: {
-          role: UserRole.TEACHER,
-          branchId: currentUser.branchId,
-          schoolId: currentUser.schoolId,
-        },
-        order: { email: 'ASC' },
-        relations: ['branch'],
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          role: true,
-          schoolId: true,
-          branchId: true,
-          createdAt: true,
-          staffPosition: true,
-          staffClearanceActive: true,
-          branch: { id: true, name: true, schoolId: true },
-        },
-      });
-    }
     throw new ForbiddenException(
-      'Only a school director, branch director, or student (own branch) can list teachers this way',
+      'Only a school director or branch director can list teachers this way',
     );
-  }
-
-  async findStudentsWithRequiredDocs(branchId: string) {
-    return this.userRepository.find({
-      where: { branchId, role: UserRole.STUDENT },
-      relations: ['requiredDocTypes', 'studentProfile'],
-    });
   }
 
   async findTeachersWithRequiredDocs(branchId: string) {
@@ -622,7 +578,6 @@ export class UserService {
         'directorProfile',
         'branchDirectorProfile',
         'teacherProfile',
-        'studentProfile',
         'parentProfile',
         'documents',
         'requiredDocTypes',
@@ -885,11 +840,7 @@ export class UserService {
       where: { id: userId },
     });
     if (!u) return false;
-    if (
-      u.role === UserRole.TEACHER ||
-      u.role === UserRole.BRANCH_DIRECTOR ||
-      u.role === UserRole.STUDENT
-    ) {
+    if (u.role === UserRole.TEACHER || u.role === UserRole.BRANCH_DIRECTOR) {
       return u.branchId === branchId;
     }
     return false;
@@ -912,19 +863,18 @@ export class UserService {
       }
       if (
         dto.role !== UserRole.TEACHER &&
-        dto.role !== UserRole.STUDENT &&
         dto.role !== UserRole.BRANCH_DIRECTOR
       ) {
         throw new ForbiddenException(
-          'You can only create teachers, students, or branch directors',
+          'You can only create teachers or branch directors',
         );
       }
       return;
     }
     if (currentUser.role === UserRole.BRANCH_DIRECTOR) {
-      if (dto.role !== UserRole.TEACHER && dto.role !== UserRole.STUDENT) {
+      if (dto.role !== UserRole.TEACHER) {
         throw new ForbiddenException(
-          'You can only create teachers or students for your branch',
+          'You can only create teachers for your branch',
         );
       }
       return;
@@ -957,7 +907,7 @@ export class UserService {
         }
         return { schoolId: dto.schoolId ?? null, branchId: null };
       }
-      if (dto.role === UserRole.TEACHER || dto.role === UserRole.STUDENT) {
+      if (dto.role === UserRole.TEACHER) {
         return { schoolId: null, branchId: dto.branchId ?? null };
       }
       return { schoolId: null, branchId: null };
@@ -1128,7 +1078,7 @@ export class UserService {
 
   async findAtRiskStaff(scope: { schoolId?: string; branchId?: string }, limit = 5) {
     const aqb = this.userRepository.createQueryBuilder('u')
-      .where('u.role IN (:...roles)', { roles: [UserRole.TEACHER, UserRole.STUDENT] })
+      .where('u.role IN (:...roles)', { roles: [UserRole.TEACHER] })
       .leftJoin('u.ownerDocuments', 'd', 'd.verifiedAt IS NOT NULL')
       .take(limit);
 

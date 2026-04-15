@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { DocumentController } from './document.controller';
 import { DocumentService } from './document.service';
 import { Document } from '../../entities/document.entity';
+import { StudentProfile } from '../../entities/student-profile.entity';
 import { UserModule } from '../user/user.module';
 import { BranchModule } from '../branch/branch.module';
 import { DocumentTypeModule } from '../document-type/document-type.module';
@@ -12,7 +13,7 @@ import { StudentParentModule } from '../student-parent/student-parent.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Document]),
+    TypeOrmModule.forFeature([Document, StudentProfile]),
     forwardRef(() => UserModule),
     forwardRef(() => BranchModule),
     forwardRef(() => DocumentTypeModule),

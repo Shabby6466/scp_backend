@@ -66,7 +66,6 @@ export class UserController {
     UserRole.DIRECTOR,
     UserRole.BRANCH_DIRECTOR,
     UserRole.TEACHER,
-    UserRole.STUDENT,
   )
   getUserDetail(
     @Param('id') id: string,
@@ -88,7 +87,6 @@ export class UserController {
     UserRole.DIRECTOR,
     UserRole.BRANCH_DIRECTOR,
     UserRole.TEACHER,
-    UserRole.STUDENT,
     UserRole.PARENT,
   )
   findOneById(
@@ -198,7 +196,7 @@ export class UserController {
 
   @Get('teachers')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR, UserRole.STUDENT)
+  @Roles(UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
   async listTeachers(
     @CurrentUser()
     user: {

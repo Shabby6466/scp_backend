@@ -50,9 +50,10 @@ export class StudentParentController {
     return this.studentParentService.listForParent(parentId, user);
   }
 
+  /** `studentId` path param is the student profile (enrolled child) id. */
   @Get('student/:studentId')
   listForStudent(
-    @Param('studentId') studentId: string,
+    @Param('studentId') studentProfileId: string,
     @CurrentUser()
     user: {
       id: string;
@@ -61,14 +62,17 @@ export class StudentParentController {
       branchId: string | null;
     },
   ) {
-    return this.studentParentService.listForStudent(studentId, user);
+    return this.studentParentService.listForStudentProfile(
+      studentProfileId,
+      user,
+    );
   }
 
   @Post()
   create(
     @Body()
     body: {
-      studentId: string;
+      studentProfileId: string;
       parentId: string;
       relation?: string;
       isPrimary?: boolean;
