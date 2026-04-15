@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class PresignDto {
   @ApiProperty({ example: 'uuid-of-owner', description: 'ID of the user who owns the document' })
@@ -21,4 +21,12 @@ export class PresignDto {
   @IsString()
   @IsNotEmpty()
   mimeType!: string;
+
+  @ApiPropertyOptional({
+    description:
+      'When uploading a document for an enrolled child, set this to the student profile id (acting user stays ownerUserId).',
+  })
+  @IsOptional()
+  @IsUUID()
+  studentProfileId?: string;
 }

@@ -21,13 +21,11 @@ import { UserService } from '../user/user.service';
 const DIRECTOR_INVITE_ROLES: UserRole[] = [
   UserRole.BRANCH_DIRECTOR,
   UserRole.TEACHER,
-  UserRole.STUDENT,
   UserRole.PARENT,
 ];
 
 const BRANCH_DIRECTOR_INVITE_ROLES: UserRole[] = [
   UserRole.TEACHER,
-  UserRole.STUDENT,
   UserRole.PARENT,
 ];
 

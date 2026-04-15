@@ -101,12 +101,6 @@ export async function seedDemoData(
   const parentEmail = (
     process.env.DEMO_PARENT_EMAIL || 'parent@demo.school'
   ).toLowerCase();
-  const student1Email = (
-    process.env.DEMO_STUDENT1_EMAIL || 'student1@demo.school'
-  ).toLowerCase();
-  const student2Email = (
-    process.env.DEMO_STUDENT2_EMAIL || 'student2@demo.school'
-  ).toLowerCase();
   /** Same password for every seeded demo user (override with DEMO_PASSWORD). */
   const demoPassword =
     process.env.DEMO_PASSWORD?.trim() ||
@@ -223,40 +217,6 @@ export async function seedDemoData(
   });
   await r.users.save(parent);
 
-  const student1 = r.users.create({
-    email: student1Email,
-    password: hashedDemoPassword,
-    name: 'Sam Student',
-    phone: null,
-    role: UserRole.STUDENT,
-    authorities: [UserRole.STUDENT],
-    schoolId: school.id,
-    branchId: branch.id,
-    assignedById: null,
-    staffPosition: null,
-    staffClearanceActive: false,
-    emailVerifiedAt: new Date(),
-    deletedBy: null,
-  });
-  await r.users.save(student1);
-
-  const student2 = r.users.create({
-    email: student2Email,
-    password: hashedDemoPassword,
-    name: 'Riley Student',
-    phone: null,
-    role: UserRole.STUDENT,
-    authorities: [UserRole.STUDENT],
-    schoolId: school.id,
-    branchId: branch.id,
-    assignedById: null,
-    staffPosition: null,
-    staffClearanceActive: false,
-    emailVerifiedAt: new Date(),
-    deletedBy: null,
-  });
-  await r.users.save(student2);
-
   await r.parentProfiles.save(
     r.parentProfiles.create({
       phone: parent.phone,
@@ -266,31 +226,40 @@ export async function seedDemoData(
     }),
   );
 
-  await r.studentProfiles.save(
-    r.studentProfiles.create({
-      userId: student1.id,
-      firstName: 'Sam',
-      lastName: 'Student',
-      dateOfBirth: new Date('2019-05-10'),
-      gradeLevel: 'Pre-K',
-      rollNumber: 'PK-001',
-      guardianName: 'Pat Parent',
-      guardianPhone: '(555) 300-4000',
-      deletedBy: null,
-    }),
-  );
+  const profileSam = r.studentProfiles.create({
+    schoolId: school.id,
+    branchId: branch.id,
+    firstName: 'Sam',
+    lastName: 'Student',
+    dateOfBirth: new Date('2019-05-10'),
+    gradeLevel: 'Pre-K',
+    rollNumber: 'PK-001',
+    guardianName: 'Pat Parent',
+    guardianPhone: '(555) 300-4000',
+    deletedBy: null,
+  });
+  await r.studentProfiles.save(profileSam);
 
-  await r.studentProfiles.save(
-    r.studentProfiles.create({
-      userId: student2.id,
-      firstName: 'Riley',
-      lastName: 'Student',
-      dateOfBirth: new Date('2018-11-02'),
-      gradeLevel: 'Kindergarten',
-      rollNumber: 'K-042',
-      guardianName: 'Pat Parent',
-      guardianPhone: '(555) 300-4000',
-      deletedBy: null,
+  const profileRiley = r.studentProfiles.create({
+    schoolId: school.id,
+    branchId: branch.id,
+    firstName: 'Riley',
+    lastName: 'Student',
+    dateOfBirth: new Date('2018-11-02'),
+    gradeLevel: 'Kindergarten',
+    rollNumber: 'K-042',
+    guardianName: 'Pat Parent',
+    guardianPhone: '(555) 300-4000',
+    deletedBy: null,
+  });
+  await r.studentProfiles.save(profileRiley);
+
+  await r.studentParents.save(
+    r.studentParents.create({
+      relation: 'Parent',
+      isPrimary: true,
+      studentProfileId: profileSam.id,
+      parentId: parent.id,
     }),
   );
 
@@ -298,17 +267,8 @@ export async function seedDemoData(
     r.studentParents.create({
       relation: 'Parent',
       isPrimary: true,
-      student: student1,
-      parent,
-    }),
-  );
-
-  await r.studentParents.save(
-    r.studentParents.create({
-      relation: 'Parent',
-      isPrimary: true,
-      student: student2,
-      parent,
+      studentProfileId: profileRiley.id,
+      parentId: parent.id,
     }),
   );
 
@@ -439,6 +399,7 @@ export async function seedDemoData(
   await r.documents.save(
     r.documents.create({
       ownerUserId: teacher.id,
+      studentProfileId: null,
       documentTypeId: dtTeacherCpr.id,
       fileName: 'cpr-certificate-demo.pdf',
       s3Key: `demo/${school.id}/cpr-placeholder.pdf`,
@@ -448,6 +409,55 @@ export async function seedDemoData(
       expiresAt: in90,
       verifiedAt: now,
       uploadedByUserId: teacher.id,
+    }),
+  );
+
+  /** Child enrollment docs: acting owner is the parent user; subject is the student profile. */
+  await r.documents.save(
+    r.documents.create({
+      ownerUserId: parent.id,
+      studentProfileId: profileSam.id,
+      documentTypeId: dtStudentHealth.id,
+      fileName: 'sam-universal-health-record.pdf',
+      s3Key: `demo/${school.id}/branches/${branch.id}/student-doc/${profileSam.id}/health-sam.pdf`,
+      mimeType: 'application/pdf',
+      sizeBytes: 62400,
+      issuedAt: new Date(now.getFullYear(), 2, 1),
+      expiresAt: in90,
+      verifiedAt: now,
+      uploadedByUserId: parent.id,
+    }),
+  );
+
+  await r.documents.save(
+    r.documents.create({
+      ownerUserId: parent.id,
+      studentProfileId: profileRiley.id,
+      documentTypeId: dtStudentHealth.id,
+      fileName: 'riley-universal-health-record.pdf',
+      s3Key: `demo/${school.id}/branches/${branch.id}/student-doc/${profileRiley.id}/health-riley.pdf`,
+      mimeType: 'application/pdf',
+      sizeBytes: 58800,
+      issuedAt: new Date(now.getFullYear(), 4, 1),
+      expiresAt: in90,
+      verifiedAt: null,
+      uploadedByUserId: parent.id,
+    }),
+  );
+
+  await r.documents.save(
+    r.documents.create({
+      ownerUserId: parent.id,
+      studentProfileId: null,
+      documentTypeId: dtParentHandbook.id,
+      fileName: 'parent-handbook-acknowledgment.pdf',
+      s3Key: `demo/${school.id}/parent-handbook-signed.pdf`,
+      mimeType: 'application/pdf',
+      sizeBytes: 20480,
+      issuedAt: new Date(now.getFullYear(), 0, 15),
+      expiresAt: null,
+      verifiedAt: now,
+      uploadedByUserId: parent.id,
     }),
   );
 
@@ -539,8 +549,10 @@ export async function seedDemoData(
 
   logger.log(
     `[demo-seed] Full sample: "${schoolName}", branch, director, branch director, teacher, ` +
-      `2 students, parent + links, positions, profiles, categories, document types, ` +
-      `1 verified teacher document, inspection types, compliance reqs, certification, invitation. ` +
+      `2 enrolled children (student profiles, no student logins), parent + StudentParent links, ` +
+      `positions, teacher/parent profiles, categories, document types, ` +
+      `1 verified teacher doc, 2 child health docs (1 verified, 1 pending review), 1 signed parent handbook, ` +
+      `inspection types, compliance reqs, certification, invitation. ` +
       `Demo accounts share one password (DEMO_PASSWORD, else ADMIN_PASSWORD, else Admin@123).`,
   );
 }

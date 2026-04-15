@@ -7,6 +7,7 @@ import { SchoolModule } from '../school/school.module';
 import { BranchModule } from '../branch/branch.module';
 import { DocumentModule } from '../document/document.module';
 import { DocumentTypeModule } from '../document-type/document-type.module';
+import { StudentParentModule } from '../student-parent/student-parent.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { DocumentTypeModule } from '../document-type/document-type.module';
     forwardRef(() => BranchModule),
     forwardRef(() => DocumentModule),
     forwardRef(() => DocumentTypeModule),
+    forwardRef(() => StudentParentModule),
   ],
   controllers: [AnalyticsController],
   providers: [AnalyticsService],

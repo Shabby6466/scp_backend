@@ -19,6 +19,7 @@ import { BranchService } from '../branch/branch.service';
 import { InspectionTypeService } from './inspection-type.service';
 import { ComplianceRequirementService } from './compliance-requirement.service';
 import { CertificationRecordService } from './certification-record.service';
+import { StudentProfileService } from '../student-parent/student-profile.service';
 
 type DashboardUser = {
   id: string;
@@ -41,6 +42,8 @@ export class SchoolService {
     private readonly certificationRecordService: CertificationRecordService,
     private readonly branchDashboardService: BranchDashboardService,
     private readonly dataSource: DataSource,
+    @Inject(forwardRef(() => StudentProfileService))
+    private readonly studentProfileService: StudentProfileService,
   ) { }
 
   async create(dto: CreateSchoolDto) {
@@ -183,6 +186,29 @@ export class SchoolService {
     const school = await this.schoolRepository.findOne({ where: { id } });
     if (!school) throw new NotFoundException('School not found');
     return this.schoolRepository.remove(school);
+  }
+
+  async listStudentProfiles(
+    schoolId: string,
+    user: {
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    if (user.role === UserRole.TEACHER) {
+      if (!user.schoolId || user.schoolId !== schoolId) {
+        throw new ForbiddenException('Cannot access this school');
+      }
+      const rows = await this.studentProfileService.findBySchoolId(schoolId);
+      if (user.branchId) {
+        return rows.filter((r) => r.branchId === user.branchId);
+      }
+      return rows;
+    }
+
+    await this.findOne(schoolId, user);
+    return this.studentProfileService.findBySchoolId(schoolId);
   }
 
   async getDashboardSummary(id: string, user: DashboardUser) {

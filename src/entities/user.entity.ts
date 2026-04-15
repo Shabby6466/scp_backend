@@ -11,7 +11,6 @@ import { Document, DocumentType } from './document.entity';
 import { DirectorProfile } from './director-profile.entity';
 import { BranchDirectorProfile } from './branch-director-profile.entity';
 import { TeacherProfile } from './teacher-profile.entity';
-import { StudentProfile } from './student-profile.entity';
 import { ParentProfile } from './parent-profile.entity';
 import { TeacherEligibilityProfile } from './teacher-eligibility-profile.entity';
 import { StudentParent } from './student-parent.entity';
@@ -104,17 +103,11 @@ export class User extends BaseEntity {
   @OneToOne(() => TeacherProfile, (profile) => profile.user)
   teacherProfile!: TeacherProfile;
 
-  @OneToOne(() => StudentProfile, (profile) => profile.user)
-  studentProfile!: StudentProfile;
-
   @OneToOne(() => ParentProfile, (profile) => profile.user)
   parentProfile!: ParentProfile;
 
   @OneToOne(() => TeacherEligibilityProfile, (profile) => profile.user)
   eligibilityProfile!: TeacherEligibilityProfile;
-
-  @OneToMany(() => StudentParent, (link) => link.student)
-  studentLinks!: StudentParent[];
 
   @OneToMany(() => StudentParent, (link) => link.parent)
   parentLinks!: StudentParent[];

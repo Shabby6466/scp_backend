@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 
 export class CompleteDocumentDto {
   @ApiProperty({ example: 'uuid-of-owner', description: 'ID of the user who owns the document' })
@@ -41,4 +41,11 @@ export class CompleteDocumentDto {
   @IsOptional()
   @IsString()
   issuedAt?: string;
+
+  @ApiPropertyOptional({
+    description: 'Student profile this document applies to (child enrollment), if any.',
+  })
+  @IsOptional()
+  @IsUUID()
+  studentProfileId?: string;
 }

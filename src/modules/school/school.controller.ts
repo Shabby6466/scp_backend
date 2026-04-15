@@ -83,6 +83,18 @@ export class SchoolController {
     return this.schoolService.listCertificationRecords(id, user);
   }
 
+  /** Enrolled children (student profiles), not login users. */
+  @Get(':id/students')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR, UserRole.TEACHER)
+  listStudentProfiles(
+    @Param('id') id: string,
+    @CurrentUser()
+    user: { role: UserRole; schoolId: string | null; branchId: string | null },
+  ) {
+    return this.schoolService.listStudentProfiles(id, user);
+  }
+
   @Get(':id')
   findOne(
     @Param('id') id: string,

@@ -11,6 +11,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets, In, IsNull } from 'typeorm';
 import { UserRole, RenewalPeriod } from '../common/enums/database.enum';
 import { Document, DocumentType } from '../../entities/document.entity';
+import { StudentProfile } from '../../entities/student-profile.entity';
+import { StudentParent } from '../../entities/student-parent.entity';
 import { StorageService } from '../storage/storage.service';
 import { canManageBranchLikeDirector } from '../auth/school-scope.util';
 import { PresignDto } from './dto/presign.dto';
@@ -22,6 +24,7 @@ import { UserService } from '../user/user.service';
 import { DocumentTypeService } from '../document-type/document-type.service';
 import { BranchService } from '../branch/branch.service';
 import { StudentParentService } from '../student-parent/student-parent.service';
+import { StudentProfileService } from '../student-parent/student-profile.service';
 
 type CurrentUser = {
   id: string;
@@ -46,16 +49,25 @@ export class DocumentService {
     private readonly branchService: BranchService,
     @Inject(forwardRef(() => StudentParentService))
     private readonly studentParent: StudentParentService,
+    @Inject(forwardRef(() => StudentProfileService))
+    private readonly studentProfileService: StudentProfileService,
+    @InjectRepository(StudentProfile)
+    private readonly studentProfileRepository: Repository<StudentProfile>,
     private readonly storage: StorageService,
     private readonly mailer: MailerService,
   ) { }
 
   async findSummaryDocsByOwnerIds(ownerIds: string[]) {
+    if (ownerIds.length === 0) return [];
     return this.documentRepository.find({
-      where: { ownerUserId: In(ownerIds) },
+      where: [
+        { ownerUserId: In(ownerIds) },
+        { studentProfileId: In(ownerIds) },
+      ],
       select: {
         id: true,
         ownerUserId: true,
+        studentProfileId: true,
         documentTypeId: true,
         expiresAt: true,
       },
@@ -63,31 +75,49 @@ export class DocumentService {
   }
 
   async findRecentDocsByBranch(branchId: string, limit = 20) {
-    return this.documentRepository.find({
-      where: {
-        ownerUser: { branchId },
-      },
-      order: { createdAt: 'DESC' },
-      take: limit,
-      relations: ['documentType', 'uploadedBy'],
-      select: {
-        id: true,
-        fileName: true,
-        issuedAt: true,
-        expiresAt: true,
-        createdAt: true,
-        documentType: { id: true, name: true, targetRole: true },
-        uploadedBy: { id: true, name: true, email: true },
-        ownerUserId: true,
-      },
-    });
+    return this.documentRepository
+      .createQueryBuilder('d')
+      .leftJoinAndSelect('d.documentType', 'documentType')
+      .leftJoinAndSelect('d.uploadedBy', 'uploadedBy')
+      .leftJoin('d.ownerUser', 'ownerUser')
+      .leftJoin('d.studentProfile', 'studentProfile')
+      .where(
+        new Brackets((w) => {
+          w.where('ownerUser.branchId = :branchId', { branchId }).orWhere(
+            'studentProfile.branchId = :branchId',
+            { branchId },
+          );
+        }),
+      )
+      .orderBy('d.createdAt', 'DESC')
+      .take(limit)
+      .select([
+        'd.id',
+        'd.fileName',
+        'd.issuedAt',
+        'd.expiresAt',
+        'd.createdAt',
+        'd.ownerUserId',
+        'documentType.id',
+        'documentType.name',
+        'documentType.targetRole',
+        'uploadedBy.id',
+        'uploadedBy.name',
+        'uploadedBy.email',
+      ])
+      .getMany();
   }
 
   async findComplianceDocsByOwnerIds(ownerIds: string[]) {
+    if (ownerIds.length === 0) return [];
     return this.documentRepository.find({
-      where: { ownerUserId: In(ownerIds) },
+      where: [
+        { ownerUserId: In(ownerIds) },
+        { studentProfileId: In(ownerIds) },
+      ],
       select: {
         ownerUserId: true,
+        studentProfileId: true,
         documentTypeId: true,
         expiresAt: true,
       },
@@ -101,15 +131,17 @@ export class DocumentService {
     const { schoolId, branchId } = await this.resolveOwnerScope(
       dto.ownerUserId,
       user,
+      dto.studentProfileId,
     );
 
     await this.documentTypeService.findOneInternal(dto.documentTypeId);
 
+    const subjectEntityId = dto.studentProfileId ?? dto.ownerUserId;
     const s3Key = this.storage.buildDocumentKey(
       schoolId,
       branchId,
-      'user-doc',
-      dto.ownerUserId,
+      dto.studentProfileId ? 'student-doc' : 'user-doc',
+      subjectEntityId,
       dto.fileName,
     );
 
@@ -129,7 +161,11 @@ export class DocumentService {
   }
 
   async complete(dto: CompleteDocumentDto, user: CurrentUser) {
-    const { schoolId, branchId } = await this.resolveOwnerScope(dto.ownerUserId, user);
+    const { schoolId, branchId } = await this.resolveOwnerScope(
+      dto.ownerUserId,
+      user,
+      dto.studentProfileId,
+    );
 
     const docType = await this.documentTypeService.findOneInternal(dto.documentTypeId);
     if (!docType) throw new NotFoundException('Document type not found');
@@ -156,6 +192,7 @@ export class DocumentService {
       documentTypeId: dto.documentTypeId,
       uploadedByUserId: user.id,
       ownerUserId: dto.ownerUserId,
+      studentProfileId: dto.studentProfileId ?? null,
       s3Key: dto.s3Key,
       fileName: dto.fileName,
       mimeType: dto.mimeType,
@@ -181,9 +218,21 @@ export class DocumentService {
   }
 
   async listByOwner(ownerUserId: string, user: CurrentUser) {
+    const profile = await this.studentProfileRepository.findOne({
+      where: { id: ownerUserId },
+    });
+    if (profile) {
+      await this.ensureCanAccessDocumentOwner(user.id, user, profile.id);
+      return this.documentRepository.find({
+        where: { studentProfileId: profile.id },
+        relations: ['documentType'],
+        order: { createdAt: 'DESC' },
+      });
+    }
+
     await this.ensureCanAccessDocumentOwner(ownerUserId, user);
     return this.documentRepository.find({
-      where: { ownerUserId },
+      where: { ownerUserId, studentProfileId: IsNull() },
       relations: ['documentType'],
       order: { createdAt: 'DESC' },
     });
@@ -193,18 +242,48 @@ export class DocumentService {
     const qb = this.documentRepository.createQueryBuilder('doc')
       .leftJoinAndSelect('doc.documentType', 'documentType')
       .leftJoinAndSelect('doc.ownerUser', 'ownerUser')
+      .leftJoin('doc.studentProfile', 'studentProfile')
+      .leftJoin(
+        StudentParent,
+        'spParent',
+        'spParent.studentProfileId = doc.studentProfileId AND spParent.parentId = :currentUserId',
+        { currentUserId: user.id },
+      )
       .orderBy('doc.createdAt', 'DESC');
 
     // 1. Scoping
     if (user.role !== UserRole.ADMIN) {
       if (canManageBranchLikeDirector(user, { schoolId: user.schoolId || '', id: user.branchId || '' } as any)) {
         if (user.branchId) {
-          qb.andWhere('ownerUser.branchId = :branchId', { branchId: user.branchId });
+          qb.andWhere(
+            new Brackets((w) => {
+              w.where('ownerUser.branchId = :branchId', {
+                branchId: user.branchId,
+              }).orWhere('studentProfile.branchId = :branchId', {
+                branchId: user.branchId,
+              });
+            }),
+          );
         } else if (user.schoolId) {
-          qb.andWhere('ownerUser.schoolId = :schoolId', { schoolId: user.schoolId });
+          qb.andWhere(
+            new Brackets((w) => {
+              w.where('ownerUser.schoolId = :schoolId', {
+                schoolId: user.schoolId,
+              }).orWhere('studentProfile.schoolId = :schoolId', {
+                schoolId: user.schoolId,
+              });
+            }),
+          );
         }
       } else {
-        qb.andWhere('doc.ownerUserId = :currentUserId', { currentUserId: user.id });
+        qb.andWhere(
+          new Brackets((w) => {
+            w.where(
+              '(doc.ownerUserId = :currentUserId AND doc.student_profile_id IS NULL)',
+              { currentUserId: user.id },
+            ).orWhere('spParent.id IS NOT NULL');
+          }),
+        );
       }
     }
 
@@ -219,11 +298,27 @@ export class DocumentService {
     }
 
     if (dto.schoolId && user.role === UserRole.ADMIN) {
-      qb.andWhere('ownerUser.schoolId = :dtoSchoolId', { dtoSchoolId: dto.schoolId });
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('ownerUser.schoolId = :dtoSchoolId', {
+            dtoSchoolId: dto.schoolId,
+          }).orWhere('studentProfile.schoolId = :dtoSchoolId', {
+            dtoSchoolId: dto.schoolId,
+          });
+        }),
+      );
     }
 
     if (dto.branchId) {
-      qb.andWhere('ownerUser.branchId = :dtoBranchId', { dtoBranchId: dto.branchId });
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('ownerUser.branchId = :dtoBranchId', {
+            dtoBranchId: dto.branchId,
+          }).orWhere('studentProfile.branchId = :dtoBranchId', {
+            dtoBranchId: dto.branchId,
+          });
+        }),
+      );
     }
 
     if (dto.documentTypeId) {
@@ -262,12 +357,57 @@ export class DocumentService {
   }
 
   async getSummaryForOwner(ownerUserId: string, user: CurrentUser) {
+    const profile = await this.studentProfileService.findOneInternal(ownerUserId);
+    if (profile) {
+      await this.ensureCanAccessDocumentOwner(user.id, user, profile.id);
+      const schoolId = profile.schoolId ?? profile.branch?.schoolId ?? null;
+      const requiredDocTypes =
+        await this.studentProfileService.findRequiredDocTypesForSchool(schoolId);
+      const docs = await this.documentRepository.find({
+        where: { studentProfileId: profile.id },
+        relations: ['documentType'],
+        order: { createdAt: 'DESC' },
+      });
+      const latestByType = new Map<string, Document>();
+      for (const doc of docs) {
+        if (!latestByType.has(doc.documentTypeId)) {
+          latestByType.set(doc.documentTypeId, doc);
+        }
+      }
+      const items = (requiredDocTypes || []).map((docType) => {
+        const latest = latestByType.get(docType.id) ?? null;
+        return {
+          documentType: docType,
+          latestDocument: latest,
+          remainingDays: latest?.expiresAt
+            ? Math.max(
+              0,
+              Math.ceil(
+                (latest.expiresAt.getTime() - Date.now()) /
+                (1000 * 60 * 60 * 24),
+              ),
+            )
+            : null,
+        };
+      });
+      const assignedCount = items.length;
+      const uploadedCount = items.filter(
+        (item) => item.latestDocument != null,
+      ).length;
+      return {
+        assignedCount,
+        uploadedCount,
+        remainingCount: assignedCount - uploadedCount,
+        items,
+      };
+    }
+
     await this.ensureCanAccessDocumentOwner(ownerUserId, user);
 
     const requiredDocTypes = await this.userService.findRequiredDocTypesForUser(ownerUserId);
 
     const docs = await this.documentRepository.find({
-      where: { ownerUserId },
+      where: { ownerUserId, studentProfileId: IsNull() },
       relations: ['documentType'],
       order: { createdAt: 'DESC' },
     });
@@ -317,6 +457,37 @@ export class DocumentService {
     documentTypeId: string,
     user: CurrentUser,
   ) {
+    const profile = await this.studentProfileService.findOneInternal(ownerUserId);
+    if (profile) {
+      await this.ensureCanAccessDocumentOwner(user.id, user, profile.id);
+      const schoolId = profile.schoolId ?? profile.branch?.schoolId ?? null;
+      const requiredDocTypes =
+        await this.studentProfileService.findRequiredDocTypesForSchool(schoolId);
+      const assignedDocType =
+        (requiredDocTypes || []).find((dt) => dt.id === documentTypeId) ?? null;
+      const latestDocument = await this.documentRepository.findOne({
+        where: { studentProfileId: profile.id, documentTypeId },
+        order: { createdAt: 'DESC' },
+      });
+      const displayName =
+        [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim() ||
+        'Student';
+      const remainingDays = latestDocument?.expiresAt
+        ? Math.ceil(
+          (latestDocument.expiresAt.getTime() - Date.now()) /
+          (1000 * 60 * 60 * 24),
+        )
+        : null;
+      return {
+        owner: { id: profile.id, name: displayName, email: null },
+        documentType: assignedDocType,
+        latestDocument,
+        uploadedDate: latestDocument?.createdAt ?? null,
+        dueDate: latestDocument?.expiresAt ?? null,
+        remainingDays,
+      };
+    }
+
     await this.ensureCanAccessDocumentOwner(ownerUserId, user);
 
     const owner = await this.userService.getUserDetail(ownerUserId, user);
@@ -325,7 +496,7 @@ export class DocumentService {
     const assignedDocType = (owner.requiredDocTypes || []).find(dt => dt.id === documentTypeId) ?? null;
 
     const latestDocument = await this.documentRepository.findOne({
-      where: { ownerUserId, documentTypeId },
+      where: { ownerUserId, documentTypeId, studentProfileId: IsNull() },
       order: { createdAt: 'DESC' },
     });
 
@@ -349,14 +520,20 @@ export class DocumentService {
   async verify(documentId: string, user: CurrentUser) {
     const doc = await this.documentRepository.findOne({
       where: { id: documentId },
-      relations: ['ownerUser', 'ownerUser.branch', 'documentType'],
+      relations: [
+        'ownerUser',
+        'ownerUser.branch',
+        'studentProfile',
+        'documentType',
+      ],
     });
 
     if (!doc) {
       throw new NotFoundException('Document not found');
     }
 
-    const branchId = doc.ownerUser.branchId;
+    const branchId =
+      doc.studentProfile?.branchId ?? doc.ownerUser.branchId ?? null;
     if (branchId) {
       await this.ensureCanManageBranch(branchId, user);
     } else if (user.role !== UserRole.ADMIN) {
@@ -367,6 +544,7 @@ export class DocumentService {
     await this.documentRepository.save(doc);
 
     if (
+      !doc.studentProfileId &&
       doc.ownerUser.role === UserRole.TEACHER &&
       doc.documentType.targetRole === UserRole.TEACHER
     ) {
@@ -390,6 +568,25 @@ export class DocumentService {
   }
 
   async nudge(ownerUserId: string, documentTypeId: string, user: CurrentUser) {
+    const profile = await this.studentProfileService.findOneInternal(ownerUserId);
+    if (profile) {
+      await this.ensureCanAccessDocumentOwner(user.id, user, profile.id);
+      const docType = await this.documentTypeService.findOneInternal(documentTypeId);
+      if (!docType) throw new NotFoundException('Document type not found');
+      const links = await this.studentParent.findLinksForStudentProfile(profile.id);
+      const emails = links
+        .map((l) => l.parent?.email)
+        .filter((e): e is string => !!e?.trim());
+      for (const email of emails) {
+        await this.mailer.sendDocumentActionReminder(
+          email,
+          email,
+          docType.name,
+        );
+      }
+      return { success: true };
+    }
+
     await this.ensureCanAccessDocumentOwner(ownerUserId, user);
 
     const owner = await this.userService.findOneInternal(ownerUserId);
@@ -451,28 +648,36 @@ export class DocumentService {
   async findDocumentById(documentId: string, user: CurrentUser) {
     const doc = await this.documentRepository.findOne({
       where: { id: documentId },
-      relations: ['documentType', 'ownerUser', 'uploadedBy'],
+      relations: ['documentType', 'ownerUser', 'uploadedBy', 'studentProfile'],
     });
 
     if (!doc) {
       throw new NotFoundException('Document not found');
     }
 
-    await this.ensureCanAccessDocumentOwner(doc.ownerUserId, user);
+    await this.ensureCanAccessDocumentOwner(
+      doc.ownerUserId,
+      user,
+      doc.studentProfileId,
+    );
     return doc;
   }
 
   async getDownloadUrl(documentId: string, user: CurrentUser): Promise<string> {
     const doc = await this.documentRepository.findOne({
       where: { id: documentId },
-      select: { s3Key: true, ownerUserId: true },
+      select: { s3Key: true, ownerUserId: true, studentProfileId: true },
     });
 
     if (!doc) {
       throw new NotFoundException('Document not found');
     }
 
-    await this.ensureCanAccessDocumentOwner(doc.ownerUserId, user);
+    await this.ensureCanAccessDocumentOwner(
+      doc.ownerUserId,
+      user,
+      doc.studentProfileId,
+    );
 
     return this.storage.createPresignedDownloadUrl(doc.s3Key);
   }
@@ -521,8 +726,28 @@ export class DocumentService {
   private async resolveOwnerScope(
     ownerUserId: string,
     user: CurrentUser,
+    studentProfileId?: string | null,
   ): Promise<EntityScope> {
-    await this.ensureCanAccessDocumentOwner(ownerUserId, user);
+    await this.ensureCanAccessDocumentOwner(
+      ownerUserId,
+      user,
+      studentProfileId ?? null,
+    );
+    if (studentProfileId) {
+      const profile = await this.studentProfileRepository.findOne({
+        where: { id: studentProfileId },
+        relations: ['branch'],
+      });
+      if (!profile) throw new NotFoundException('Student not found');
+      const branchId = profile.branchId;
+      if (!branchId) {
+        throw new ForbiddenException('Student must belong to a branch');
+      }
+      const branch = await this.branchService.findOneById(branchId);
+      if (!branch) throw new NotFoundException('Branch not found');
+      return { schoolId: branch.schoolId, branchId: branch.id };
+    }
+
     const owner = await this.userService.findOneInternal(ownerUserId);
     if (!owner) throw new NotFoundException('User not found');
     const branchId = owner.branchId;
@@ -537,8 +762,45 @@ export class DocumentService {
   private async ensureCanAccessDocumentOwner(
     ownerUserId: string,
     user: CurrentUser,
+    studentProfileId?: string | null,
   ) {
     if (user.role === UserRole.ADMIN) return;
+
+    if (studentProfileId) {
+      const profile = await this.studentProfileRepository.findOne({
+        where: { id: studentProfileId },
+        relations: ['branch'],
+      });
+      if (!profile) throw new NotFoundException('Student not found');
+
+      const branchId = profile.branchId;
+      if (branchId) {
+        const branch = await this.branchService.findOneById(branchId);
+        if (branch && canManageBranchLikeDirector(user, branch)) {
+          return;
+        }
+        if (
+          user.role === UserRole.TEACHER &&
+          user.branchId &&
+          user.branchId === branchId
+        ) {
+          return;
+        }
+      }
+
+      if (user.role === UserRole.PARENT) {
+        if (await this.studentParent.isLinked(user.id, studentProfileId)) {
+          return;
+        }
+      }
+
+      if (user.id === ownerUserId) {
+        return;
+      }
+
+      throw new ForbiddenException('Cannot access this document');
+    }
+
     if (user.id === ownerUserId) return;
 
     const owner = await this.userService.findOneInternal(ownerUserId);
@@ -552,10 +814,8 @@ export class DocumentService {
 
     if (canManageBranchLikeDirector(user, branch)) return;
 
-    if (user.role === UserRole.PARENT) {
-      if (await this.studentParent.isLinked(user.id, ownerUserId)) {
-        return;
-      }
+    if (user.role === UserRole.TEACHER && user.branchId === branchId) {
+      return;
     }
 
     throw new ForbiddenException('Cannot access this document');
@@ -573,110 +833,239 @@ export class DocumentService {
   }
 
   async countVerifiedInScope(scope: { schoolId?: string; branchId?: string }, now: Date) {
-    const qb = this.documentRepository.createQueryBuilder('d')
-      .innerJoin('d.ownerUser', 'owner')
+    const qb = this.documentRepository
+      .createQueryBuilder('d')
+      .leftJoin('d.ownerUser', 'owner')
+      .leftJoin('d.studentProfile', 'sp')
+      .leftJoin('owner.branch', 'ob')
+      .leftJoin('sp.branch', 'sb')
       .where('d.verifiedAt IS NOT NULL')
       .andWhere('d.expiresAt > :now', { now });
 
     if (scope.branchId) {
-      qb.andWhere('owner.branchId = :branchId', { branchId: scope.branchId });
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('owner.branchId = :branchId', {
+            branchId: scope.branchId,
+          }).orWhere('sp.branchId = :branchId', { branchId: scope.branchId });
+        }),
+      );
     } else if (scope.schoolId) {
-      qb.innerJoin('owner.branch', 'b').andWhere('b.schoolId = :schoolId', { schoolId: scope.schoolId });
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('ob.schoolId = :schoolId', { schoolId: scope.schoolId }).orWhere(
+            'sb.schoolId = :schoolId',
+            { schoolId: scope.schoolId },
+          );
+        }),
+      );
     }
     return qb.getCount();
   }
 
   async countPendingInScope(scope: { schoolId?: string; branchId?: string }) {
-    const qb = this.documentRepository.createQueryBuilder('d')
-      .innerJoin('d.ownerUser', 'owner')
+    const qb = this.documentRepository
+      .createQueryBuilder('d')
+      .leftJoin('d.ownerUser', 'owner')
+      .leftJoin('d.studentProfile', 'sp')
+      .leftJoin('owner.branch', 'ob')
+      .leftJoin('sp.branch', 'sb')
       .where('d.verifiedAt IS NULL');
 
     if (scope.branchId) {
-      qb.andWhere('owner.branchId = :branchId', { branchId: scope.branchId });
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('owner.branchId = :branchId', {
+            branchId: scope.branchId,
+          }).orWhere('sp.branchId = :branchId', { branchId: scope.branchId });
+        }),
+      );
     } else if (scope.schoolId) {
-      qb.innerJoin('owner.branch', 'b').andWhere('b.schoolId = :schoolId', { schoolId: scope.schoolId });
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('ob.schoolId = :schoolId', { schoolId: scope.schoolId }).orWhere(
+            'sb.schoolId = :schoolId',
+            { schoolId: scope.schoolId },
+          );
+        }),
+      );
     }
     return qb.getCount();
   }
 
   async countInSchool(schoolId: string) {
-    return this.documentRepository.createQueryBuilder('d')
-      .innerJoin('d.ownerUser', 'owner')
-      .innerJoin('owner.branch', 'b')
-      .where('b.schoolId = :schoolId', { schoolId })
+    return this.documentRepository
+      .createQueryBuilder('d')
+      .leftJoin('d.ownerUser', 'owner')
+      .leftJoin('d.studentProfile', 'sp')
+      .leftJoin('owner.branch', 'ob')
+      .leftJoin('sp.branch', 'sb')
+      .where(
+        new Brackets((w) => {
+          w.where('ob.schoolId = :schoolId', { schoolId }).orWhere(
+            'sb.schoolId = :schoolId',
+            { schoolId },
+          );
+        }),
+      )
       .getCount();
   }
 
   async countExpiredInScope(scope: { schoolId?: string; branchId?: string }, now: Date) {
-    const qb = this.documentRepository.createQueryBuilder('d')
-      .innerJoin('d.ownerUser', 'owner')
+    const qb = this.documentRepository
+      .createQueryBuilder('d')
+      .leftJoin('d.ownerUser', 'owner')
+      .leftJoin('d.studentProfile', 'sp')
+      .leftJoin('owner.branch', 'ob')
+      .leftJoin('sp.branch', 'sb')
       .where('d.expiresAt < :now', { now });
 
     if (scope.branchId) {
-      qb.andWhere('owner.branchId = :branchId', { branchId: scope.branchId });
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('owner.branchId = :branchId', {
+            branchId: scope.branchId,
+          }).orWhere('sp.branchId = :branchId', { branchId: scope.branchId });
+        }),
+      );
     } else if (scope.schoolId) {
-      qb.innerJoin('owner.branch', 'b').andWhere('b.schoolId = :schoolId', { schoolId: scope.schoolId });
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('ob.schoolId = :schoolId', { schoolId: scope.schoolId }).orWhere(
+            'sb.schoolId = :schoolId',
+            { schoolId: scope.schoolId },
+          );
+        }),
+      );
     }
     return qb.getCount();
   }
 
   async countNearExpiryInScope(scope: { schoolId?: string; branchId?: string }, now: Date, nearEnd: Date) {
-    const qb = this.documentRepository.createQueryBuilder('d')
-      .innerJoin('d.ownerUser', 'owner')
+    const qb = this.documentRepository
+      .createQueryBuilder('d')
+      .leftJoin('d.ownerUser', 'owner')
+      .leftJoin('d.studentProfile', 'sp')
+      .leftJoin('owner.branch', 'ob')
+      .leftJoin('sp.branch', 'sb')
       .where('d.expiresAt > :now AND d.expiresAt <= :nearEnd', { now, nearEnd });
 
     if (scope.branchId) {
-      qb.andWhere('owner.branchId = :branchId', { branchId: scope.branchId });
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('owner.branchId = :branchId', {
+            branchId: scope.branchId,
+          }).orWhere('sp.branchId = :branchId', { branchId: scope.branchId });
+        }),
+      );
     } else if (scope.schoolId) {
-      qb.innerJoin('owner.branch', 'b').andWhere('b.schoolId = :schoolId', { schoolId: scope.schoolId });
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('ob.schoolId = :schoolId', { schoolId: scope.schoolId }).orWhere(
+            'sb.schoolId = :schoolId',
+            { schoolId: scope.schoolId },
+          );
+        }),
+      );
     }
     return qb.getCount();
   }
 
   async findExpiringInScope(scope: { schoolId?: string; branchId?: string }, now: Date, until: Date, limit: number) {
-    const qb = this.documentRepository.createQueryBuilder('d')
+    const qb = this.documentRepository
+      .createQueryBuilder('d')
       .innerJoinAndSelect('d.documentType', 'dt')
-      .innerJoinAndSelect('d.ownerUser', 'owner')
+      .leftJoinAndSelect('d.ownerUser', 'owner')
+      .leftJoinAndSelect('d.studentProfile', 'sp')
+      .leftJoin('owner.branch', 'ob')
+      .leftJoin('sp.branch', 'sb')
       .where('d.expiresAt > :now AND d.expiresAt <= :until', { now, until })
       .orderBy('d.expiresAt', 'ASC')
       .take(limit);
 
     if (scope.branchId) {
-      qb.andWhere('owner.branchId = :branchId', { branchId: scope.branchId });
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('owner.branchId = :branchId', {
+            branchId: scope.branchId,
+          }).orWhere('sp.branchId = :branchId', { branchId: scope.branchId });
+        }),
+      );
     } else if (scope.schoolId) {
-      qb.innerJoin('owner.branch', 'b').andWhere('b.schoolId = :schoolId', { schoolId: scope.schoolId });
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('ob.schoolId = :schoolId', { schoolId: scope.schoolId }).orWhere(
+            'sb.schoolId = :schoolId',
+            { schoolId: scope.schoolId },
+          );
+        }),
+      );
     }
     return qb.getMany();
   }
 
   async findExpiredInScope(scope: { schoolId?: string; branchId?: string }, now: Date, limit: number) {
-    const qb = this.documentRepository.createQueryBuilder('d')
+    const qb = this.documentRepository
+      .createQueryBuilder('d')
       .innerJoinAndSelect('d.documentType', 'dt')
-      .innerJoinAndSelect('d.ownerUser', 'owner')
+      .leftJoinAndSelect('d.ownerUser', 'owner')
+      .leftJoinAndSelect('d.studentProfile', 'sp')
+      .leftJoin('owner.branch', 'ob')
+      .leftJoin('sp.branch', 'sb')
       .where('d.expiresAt < :now', { now })
       .orderBy('d.expiresAt', 'DESC')
       .take(limit);
 
     if (scope.branchId) {
-      qb.andWhere('owner.branchId = :branchId', { branchId: scope.branchId });
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('owner.branchId = :branchId', {
+            branchId: scope.branchId,
+          }).orWhere('sp.branchId = :branchId', { branchId: scope.branchId });
+        }),
+      );
     } else if (scope.schoolId) {
-      qb.innerJoin('owner.branch', 'b').andWhere('b.schoolId = :schoolId', { schoolId: scope.schoolId });
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('ob.schoolId = :schoolId', { schoolId: scope.schoolId }).orWhere(
+            'sb.schoolId = :schoolId',
+            { schoolId: scope.schoolId },
+          );
+        }),
+      );
     }
     return qb.getMany();
   }
 
   async findRecentUnverifiedInScope(scope: { schoolId?: string; branchId?: string }, limit: number) {
-    const qb = this.documentRepository.createQueryBuilder('d')
+    const qb = this.documentRepository
+      .createQueryBuilder('d')
       .leftJoinAndSelect('d.ownerUser', 'owner')
+      .leftJoinAndSelect('d.studentProfile', 'sp')
       .leftJoinAndSelect('d.documentType', 'dt')
+      .leftJoin('owner.branch', 'ob')
+      .leftJoin('sp.branch', 'sb')
       .where('d.verifiedAt IS NULL')
       .orderBy('d.createdAt', 'DESC')
       .take(limit);
 
     if (scope.branchId) {
-      qb.andWhere('owner.branchId = :branchId', { branchId: scope.branchId });
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('owner.branchId = :branchId', {
+            branchId: scope.branchId,
+          }).orWhere('sp.branchId = :branchId', { branchId: scope.branchId });
+        }),
+      );
     } else if (scope.schoolId) {
-      qb.innerJoin('owner.branch', 'b').andWhere('b.schoolId = :schoolId', { schoolId: scope.schoolId });
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('ob.schoolId = :schoolId', { schoolId: scope.schoolId }).orWhere(
+            'sb.schoolId = :schoolId',
+            { schoolId: scope.schoolId },
+          );
+        }),
+      );
     }
     return qb.getMany();
   }

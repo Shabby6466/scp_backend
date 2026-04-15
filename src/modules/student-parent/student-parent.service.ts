@@ -8,7 +8,6 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { randomUUID } from 'crypto';
 import { UserRole } from '../common/enums/database.enum';
 import { StudentParent } from '../../entities/student-parent.entity';
 import { User } from '../../entities/user.entity';
@@ -31,6 +30,8 @@ export class StudentParentService {
     private readonly studentParentRepository: Repository<StudentParent>,
     @Inject(forwardRef(() => UserService))
     private readonly userService: UserService,
+    @InjectRepository(StudentProfile)
+    private readonly studentProfileRepository: Repository<StudentProfile>,
     private readonly dataSource: DataSource,
   ) { }
 
@@ -42,23 +43,32 @@ export class StudentParentService {
     return parent;
   }
 
-  /** User id on the "student" side of a link (must exist). Role check is not required for reads. */
-  private async loadStudentSideUser(studentId: string) {
-    const student = await this.userService.findOneInternal(studentId);
-    if (!student) {
-      throw new NotFoundException('User not found');
+  private async loadStudentProfile(studentProfileId: string) {
+    const profile = await this.studentProfileRepository.findOne({
+      where: { id: studentProfileId },
+      relations: ['branch', 'school'],
+    });
+    if (!profile) {
+      throw new NotFoundException('Student not found');
     }
-    return student;
+    return profile;
   }
 
-  async isLinked(parentId: string, studentId: string): Promise<boolean> {
+  /** Parent may access documents for this child profile when linked. */
+  async isLinked(parentId: string, studentProfileId: string): Promise<boolean> {
     const count = await this.studentParentRepository.count({
-      where: { parentId, studentId },
+      where: { parentId, studentProfileId },
     });
     return count > 0;
   }
 
-  /** Whether `user` may read links involving this parent user id. */
+  async findLinksForStudentProfile(studentProfileId: string) {
+    return this.studentParentRepository.find({
+      where: { studentProfileId },
+      relations: ['parent'],
+    });
+  }
+
   private async assertCanAccessParentView(parentId: string, user: JwtUser) {
     const parent = await this.assertParentRecord(parentId);
 
@@ -71,14 +81,17 @@ export class StudentParentService {
     if (isSchoolDirector(user) && user.schoolId === parent.schoolId) {
       return;
     }
-    if (user.role === UserRole.BRANCH_DIRECTOR && user.schoolId === parent.schoolId) {
+    if (
+      user.role === UserRole.BRANCH_DIRECTOR &&
+      user.schoolId === parent.schoolId
+    ) {
       return;
     }
     if (user.role === UserRole.TEACHER && user.branchId) {
       const anyInBranch = await this.studentParentRepository.count({
         where: {
           parentId,
-          student: { branchId: user.branchId },
+          studentProfile: { branchId: user.branchId },
         },
       });
       if (anyInBranch > 0) {
@@ -89,36 +102,41 @@ export class StudentParentService {
     throw new ForbiddenException('Cannot access these records');
   }
 
-  private async assertCanAccessStudentView(studentId: string, user: JwtUser) {
-    const student = await this.loadStudentSideUser(studentId);
+  private profileSchoolId(profile: StudentProfile) {
+    return profile.schoolId ?? profile.branch?.schoolId ?? null;
+  }
+
+  private async assertCanAccessStudentProfileView(
+    studentProfileId: string,
+    user: JwtUser,
+  ) {
+    const profile = await this.loadStudentProfile(studentProfileId);
+    const profileSchoolId = this.profileSchoolId(profile);
 
     if (user.role === UserRole.ADMIN) {
       return;
     }
-    if (user.id === studentId) {
-      return;
-    }
 
-    if (isSchoolDirector(user) && user.schoolId === student.schoolId) {
+    if (isSchoolDirector(user) && user.schoolId === profileSchoolId) {
       return;
     }
     if (
       user.role === UserRole.BRANCH_DIRECTOR &&
       user.branchId &&
-      student.branchId === user.branchId
+      profile.branchId === user.branchId
     ) {
       return;
     }
     if (
       user.role === UserRole.TEACHER &&
       user.branchId &&
-      student.branchId === user.branchId
+      profile.branchId === user.branchId
     ) {
       return;
     }
     if (user.role === UserRole.PARENT) {
       const link = await this.studentParentRepository.findOne({
-        where: { studentId, parentId: user.id },
+        where: { studentProfileId, parentId: user.id },
       });
       if (link) {
         return;
@@ -133,57 +151,59 @@ export class StudentParentService {
 
     const rows = await this.studentParentRepository.find({
       where: { parentId },
-      relations: [
-        'student',
-        'student.branch',
-        'student.school',
-        'student.studentProfile',
-      ],
+      relations: ['studentProfile', 'studentProfile.branch', 'studentProfile.school'],
       order: { createdAt: 'ASC' },
     });
 
-    return rows.map((r) => ({
-      id: r.id,
-      studentId: r.studentId,
-      parentId: r.parentId,
-      relation: r.relation,
-      isPrimary: r.isPrimary,
-      createdAt: r.createdAt.toISOString(),
-      student: {
-        id: r.student.id,
-        name: r.student.name,
-        email: r.student.email,
-        role: r.student.role,
-        branchId: r.student.branchId,
-        schoolId: r.student.schoolId,
-        branch: r.student.branch ? { id: r.student.branch.id, name: r.student.branch.name } : null,
-        school: r.student.school ? { id: r.student.school.id, name: r.student.school.name } : null,
-        studentProfile: r.student.studentProfile
-          ? {
-            firstName: r.student.studentProfile.firstName,
-            lastName: r.student.studentProfile.lastName,
-            dateOfBirth: r.student.studentProfile.dateOfBirth
-              ? r.student.studentProfile.dateOfBirth.toISOString()
+    return rows.map((r) => {
+      const p = r.studentProfile;
+      return {
+        id: r.id,
+        studentId: r.studentProfileId,
+        parentId: r.parentId,
+        relation: r.relation,
+        isPrimary: r.isPrimary,
+        createdAt: r.createdAt.toISOString(),
+        student: {
+          id: p.id,
+          name:
+            [p.firstName, p.lastName].filter(Boolean).join(' ').trim() ||
+            null,
+          email: null as string | null,
+          role: null as string | null,
+          branchId: p.branchId,
+          schoolId: p.schoolId,
+          branch: p.branch
+            ? { id: p.branch.id, name: p.branch.name }
+            : null,
+          school: p.school
+            ? { id: p.school.id, name: p.school.name }
+            : null,
+          studentProfile: {
+            firstName: p.firstName,
+            lastName: p.lastName,
+            dateOfBirth: p.dateOfBirth
+              ? p.dateOfBirth.toISOString()
               : null,
-            gradeLevel: r.student.studentProfile.gradeLevel,
-          }
-          : null,
-      },
-    }));
+            gradeLevel: p.gradeLevel,
+          },
+        },
+      };
+    });
   }
 
-  async listForStudent(studentId: string, user: JwtUser) {
-    await this.assertCanAccessStudentView(studentId, user);
+  async listForStudentProfile(studentProfileId: string, user: JwtUser) {
+    await this.assertCanAccessStudentProfileView(studentProfileId, user);
 
     const rows = await this.studentParentRepository.find({
-      where: { studentId },
+      where: { studentProfileId },
       relations: ['parent'],
       order: { createdAt: 'ASC' },
     });
 
     return rows.map((r) => ({
       id: r.id,
-      studentId: r.studentId,
+      studentId: r.studentProfileId,
       parentId: r.parentId,
       relation: r.relation,
       isPrimary: r.isPrimary,
@@ -201,25 +221,23 @@ export class StudentParentService {
 
   async create(
     dto: {
-      studentId: string;
+      studentProfileId: string;
       parentId: string;
       relation?: string;
       isPrimary?: boolean;
     },
     user: JwtUser,
   ) {
-    await this.assertCanAccessStudentView(dto.studentId, user);
+    await this.assertCanAccessStudentProfileView(dto.studentProfileId, user);
     await this.assertCanAccessParentView(dto.parentId, user);
 
-    const studentUser = await this.loadStudentSideUser(dto.studentId);
-    if (studentUser.role !== UserRole.STUDENT) {
-      throw new BadRequestException(
-        'studentId must refer to a user with role STUDENT',
-      );
+    const parentUser = await this.assertParentRecord(dto.parentId);
+    if (parentUser.role !== UserRole.PARENT) {
+      throw new BadRequestException('parentId must refer to a user with role PARENT');
     }
 
     const created = this.studentParentRepository.create({
-      studentId: dto.studentId,
+      studentProfileId: dto.studentProfileId,
       parentId: dto.parentId,
       relation: dto.relation?.trim() || undefined,
       isPrimary: dto.isPrimary ?? false,
@@ -229,14 +247,10 @@ export class StudentParentService {
 
     return this.studentParentRepository.findOne({
       where: { id: created.id },
-      relations: ['student', 'parent'],
+      relations: ['studentProfile', 'parent'],
     });
   }
 
-  /**
-   * Parent registers a child user (no login), with profile and parent link.
-   * School/branch can be assigned later by the school.
-   */
   async registerChild(dto: RegisterChildDto, user: JwtUser) {
     if (user.role !== UserRole.PARENT) {
       throw new ForbiddenException('Only a parent can register a child');
@@ -249,35 +263,24 @@ export class StudentParentService {
     const first = dto.firstName.trim();
     const last = dto.lastName.trim();
     const name = `${first} ${last}`.trim();
-    const email = `student+${randomUUID()}@child.internal`;
-
     const dob = new Date(`${dto.dateOfBirth}T12:00:00.000Z`);
     if (Number.isNaN(dob.getTime())) {
       throw new BadRequestException('Invalid dateOfBirth');
     }
 
     return this.dataSource.transaction(async (manager) => {
-      const student = manager.create(User, {
-        email,
-        name,
-        role: UserRole.STUDENT,
-        schoolId: null,
-        branchId: null,
-        emailVerifiedAt: new Date(),
-      });
-      await manager.save(student);
-
       const profile = manager.create(StudentProfile, {
-        userId: student.id,
         firstName: first,
         lastName: last,
         dateOfBirth: dob,
         gradeLevel: dto.gradeLevel?.trim() || null,
+        schoolId: parent.schoolId,
+        branchId: parent.branchId,
       });
       await manager.save(profile);
 
       const link = manager.create(StudentParent, {
-        studentId: student.id,
+        studentProfileId: profile.id,
         parentId: user.id,
         relation: 'parent',
         isPrimary: true,
@@ -286,12 +289,12 @@ export class StudentParentService {
 
       return {
         student: {
-          id: student.id,
-          name: student.name,
-          email: student.email,
-          role: student.role,
-          schoolId: student.schoolId,
-          branchId: student.branchId,
+          id: profile.id,
+          name,
+          email: null,
+          role: null,
+          schoolId: profile.schoolId,
+          branchId: profile.branchId,
           studentProfile: {
             firstName: profile.firstName,
             lastName: profile.lastName,
@@ -299,9 +302,18 @@ export class StudentParentService {
             gradeLevel: profile.gradeLevel,
           },
         },
-        link: { id: link.id, studentId: link.studentId, parentId: link.parentId },
+        link: {
+          id: link.id,
+          studentId: link.studentProfileId,
+          parentId: link.parentId,
+        },
       };
     });
+  }
+
+  async getStudentProfileById(profileId: string, user: JwtUser) {
+    await this.assertCanAccessStudentProfileView(profileId, user);
+    return this.loadStudentProfile(profileId);
   }
 
   async remove(linkId: string, user: JwtUser) {
@@ -312,7 +324,7 @@ export class StudentParentService {
       throw new NotFoundException('Link not found');
     }
 
-    await this.assertCanAccessStudentView(link.studentId, user);
+    await this.assertCanAccessStudentProfileView(link.studentProfileId, user);
     await this.assertCanAccessParentView(link.parentId, user);
 
     await this.studentParentRepository.delete(linkId);

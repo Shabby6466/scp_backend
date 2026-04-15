@@ -16,6 +16,7 @@ import {
 } from '../auth/school-scope.util';
 import { UserService } from '../user/user.service';
 import { DocumentService } from '../document/document.service';
+import { StudentProfileService } from '../student-parent/student-profile.service';
 
 /** Documents expiring within this many days (and still valid) count as "near expiry". */
 export const NEAR_EXPIRY_DAYS = 30;
@@ -36,7 +37,18 @@ export class BranchDashboardService {
     private readonly userService: UserService,
     @Inject(forwardRef(() => DocumentService))
     private readonly documentService: DocumentService,
+    @Inject(forwardRef(() => StudentProfileService))
+    private readonly studentProfileService: StudentProfileService,
   ) { }
+
+  private docSatisfiedKey(d: {
+    ownerUserId: string;
+    studentProfileId?: string | null;
+    documentTypeId: string;
+  }) {
+    const subjectId = d.studentProfileId ?? d.ownerUserId;
+    return `${subjectId}:${d.documentTypeId}`;
+  }
 
   async ensureBranchDashboardAccess(branchId: string, user: CurrentUser) {
     const branch = await this.branchRepository.findOne({
@@ -72,13 +84,13 @@ export class BranchDashboardService {
     const branch = await this.ensureBranchDashboardAccess(branchId, user);
     const now = new Date();
 
-    const [studentUsers, teachers] = await Promise.all([
-      this.userService.findStudentsWithRequiredDocs(branchId),
+    const [studentProfiles, teachers] = await Promise.all([
+      this.studentProfileService.findByBranchForCompliance(branchId),
       this.userService.findTeachersWithRequiredDocs(branchId),
     ]);
 
     const ownerIds = [
-      ...studentUsers.map((u) => u.id),
+      ...studentProfiles.map((s) => s.id),
       ...teachers.map((u) => u.id),
     ];
 
@@ -95,7 +107,7 @@ export class BranchDashboardService {
         formsNearExpiryCount += 1;
       }
       if (!this.isDocCurrentlyValid(d.expiresAt, now)) continue;
-      satisfiedKeys.add(`${d.ownerUserId}:${d.documentTypeId}`);
+      satisfiedKeys.add(this.docSatisfiedKey(d));
     }
 
     let requiredSlots = 0;
@@ -109,7 +121,7 @@ export class BranchDashboardService {
       }
     };
 
-    for (const s of studentUsers) countPerson(s as any);
+    for (const s of studentProfiles) countPerson(s as any);
     for (const t of teachers) countPerson(t as any);
 
     const missingSlots = requiredSlots - satisfiedSlots;
@@ -135,7 +147,7 @@ export class BranchDashboardService {
     return {
       branchId,
       schoolId: branch.schoolId,
-      studentCount: studentUsers.length,
+      studentCount: studentProfiles.length,
       teacherCount: teachers.length,
       teachersConsidered,
       teachersWithAllRequiredForms,
@@ -174,13 +186,13 @@ export class BranchDashboardService {
     await this.ensureBranchDashboardAccess(branchId, user);
     const now = new Date();
 
-    const [studentUsers, teachers] = await Promise.all([
-      this.userService.findStudentsWithRequiredDocs(branchId),
+    const [studentProfiles, teachers] = await Promise.all([
+      this.studentProfileService.findByBranchForCompliance(branchId),
       this.userService.findTeachersWithRequiredDocs(branchId),
     ]);
 
     const ownerIds = [
-      ...studentUsers.map((u) => u.id),
+      ...studentProfiles.map((s) => s.id),
       ...teachers.map((u) => u.id),
     ];
 
@@ -192,10 +204,10 @@ export class BranchDashboardService {
     const validPair = new Set<string>();
     for (const d of docs) {
       if (!this.isDocCurrentlyValid(d.expiresAt, now)) continue;
-      validPair.add(`${d.ownerUserId}:${d.documentTypeId}`);
+      validPair.add(this.docSatisfiedKey(d));
     }
 
-    const students = studentUsers.map((s) => {
+    const students = studentProfiles.map((s) => {
       const requiredIds = (s.requiredDocTypes || []).map((t) => t.id);
       const requiredCount = requiredIds.length;
       let uploadedSatisfiedCount = 0;
@@ -204,10 +216,10 @@ export class BranchDashboardService {
       }
       return {
         kind: 'STUDENT' as const,
-        userId: s.id,
+        studentProfileId: s.id,
         name: s.name ?? s.email,
         guardianName: s.studentProfile?.guardianName ?? null,
-        guardianEmail: s.email,
+        guardianEmail: null as string | null,
         requiredCount,
         uploadedSatisfiedCount,
         missingCount: requiredCount - uploadedSatisfiedCount,

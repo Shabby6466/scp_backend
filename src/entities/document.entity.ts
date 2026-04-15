@@ -6,6 +6,7 @@ import {
   UserRole,
 } from '../modules/common/enums/database.enum';
 import { User } from './user.entity';
+import { StudentProfile } from './student-profile.entity';
 import { ComplianceCategory } from './compliance-category.entity';
 
 @Entity('DocumentType')
@@ -78,14 +79,19 @@ export class DocumentType extends BaseEntity {
 export class Document extends BaseEntity {
   @Column({
     name: 'owner_user_id',
-    type: 'uuid'
+    type: 'uuid',
   })
   @Index()
   ownerUserId!: string;
 
+  /** When set, the document applies to this enrolled child (student profile), not a student user. */
+  @Column({ name: 'student_profile_id', type: 'uuid', nullable: true })
+  @Index()
+  studentProfileId!: string | null;
+
   @Column({
     name: 'document_type_id',
-    type: 'uuid'
+    type: 'uuid',
   })
   @Index()
   documentTypeId!: string;
@@ -125,6 +131,10 @@ export class Document extends BaseEntity {
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'owner_user_id' })
   ownerUser!: User;
+
+  @ManyToOne(() => StudentProfile, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'student_profile_id' })
+  studentProfile!: StudentProfile | null;
 
   @ManyToOne(() => DocumentType, (type) => type.documents, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'document_type_id' })

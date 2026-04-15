@@ -48,12 +48,11 @@ export class DocumentTypeService {
     if (actorRole === UserRole.DIRECTOR) {
       return (
         targetRole === UserRole.BRANCH_DIRECTOR ||
-        targetRole === UserRole.TEACHER ||
-        targetRole === UserRole.STUDENT
+        targetRole === UserRole.TEACHER
       );
     }
     if (actorRole === UserRole.BRANCH_DIRECTOR) {
-      return targetRole === UserRole.TEACHER || targetRole === UserRole.STUDENT;
+      return targetRole === UserRole.TEACHER;
     }
     return false;
   }
@@ -86,7 +85,10 @@ export class DocumentTypeService {
       }
       return;
     }
-    if (actor.role === UserRole.TEACHER || actor.role === UserRole.STUDENT) {
+    if (
+      actor.role === UserRole.TEACHER ||
+      actor.role === UserRole.PARENT
+    ) {
       if (docType.schoolId !== actor.schoolId) {
         throw new ForbiddenException('Document type is outside your school');
       }
@@ -381,7 +383,7 @@ export class DocumentTypeService {
       });
     } else if (
       user.role === UserRole.TEACHER ||
-      user.role === UserRole.STUDENT
+      user.role === UserRole.PARENT
     ) {
       if (!user.schoolId) {
         throw new ForbiddenException('Your account is not linked to a school');
