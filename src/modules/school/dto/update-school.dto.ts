@@ -10,6 +10,7 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 
 export class UpdateSchoolDto {
@@ -155,11 +156,13 @@ export class UpdateSchoolDto {
 
   @ApiPropertyOptional({ description: 'snake_case alias for approvedAt' })
   @IsOptional()
+  @ValidateIf((_, v) => v != null && v !== '')
   @IsDateString()
   approved_at?: string | null;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @ValidateIf((_, v) => v != null && v !== '')
   @IsDateString()
   approvedAt?: string | null;
 

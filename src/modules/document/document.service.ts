@@ -362,7 +362,10 @@ export class DocumentService {
       await this.ensureCanAccessDocumentOwner(user.id, user, profile.id);
       const schoolId = profile.schoolId ?? profile.branch?.schoolId ?? null;
       const requiredDocTypes =
-        await this.studentProfileService.findRequiredDocTypesForSchool(schoolId);
+        await this.studentProfileService.findRequiredDocTypesForStudentProfile(
+          schoolId,
+          profile.branchId ?? null,
+        );
       const docs = await this.documentRepository.find({
         where: { studentProfileId: profile.id },
         relations: ['documentType'],
@@ -462,7 +465,10 @@ export class DocumentService {
       await this.ensureCanAccessDocumentOwner(user.id, user, profile.id);
       const schoolId = profile.schoolId ?? profile.branch?.schoolId ?? null;
       const requiredDocTypes =
-        await this.studentProfileService.findRequiredDocTypesForSchool(schoolId);
+        await this.studentProfileService.findRequiredDocTypesForStudentProfile(
+          schoolId,
+          profile.branchId ?? null,
+        );
       const assignedDocType =
         (requiredDocTypes || []).find((dt) => dt.id === documentTypeId) ?? null;
       const latestDocument = await this.documentRepository.findOne({

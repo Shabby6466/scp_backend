@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { RenewalPeriod, UserRole } from '../../common/enums/database.enum';
 
 export class CreateDocumentTypeDto {
@@ -32,4 +32,9 @@ export class CreateDocumentTypeDto {
   @IsOptional()
   @IsString()
   complianceCategoryId?: string;
+
+  @ApiPropertyOptional({ example: true, description: 'Whether this document is mandatory' })
+  @IsOptional()
+  @IsBoolean()
+  isMandatory?: boolean;
 }

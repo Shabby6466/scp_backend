@@ -4,7 +4,9 @@ import { DataSource, Repository } from 'typeorm';
 import { StudentProfile } from '../../entities/student-profile.entity';
 import { StudentParent } from '../../entities/student-parent.entity';
 import { User } from '../../entities/user.entity';
+import { Branch } from '../../entities/branch.entity';
 import { UserRole } from '../common/enums/database.enum';
+import { isSchoolDirector } from '../auth/school-scope.util';
 
 type Actor = { id: string; role: UserRole; schoolId: string | null; branchId: string | null };
 
@@ -17,8 +19,59 @@ export class StudentsService {
     private readonly links: Repository<StudentParent>,
     @InjectRepository(User)
     private readonly users: Repository<User>,
+    @InjectRepository(Branch)
+    private readonly branches: Repository<Branch>,
     private readonly ds: DataSource,
   ) {}
+
+  private normalizeBranchPayload(raw: unknown): string | null {
+    if (raw === null || raw === undefined) return null;
+    const t = String(raw).trim();
+    if (!t) return null;
+    const lower = t.toLowerCase();
+    if (
+      lower === '_none_' ||
+      lower === 'none' ||
+      lower === '_null_' ||
+      lower === 'null' ||
+      lower === 'undefined'
+    ) {
+      return null;
+    }
+    return t;
+  }
+
+  private async assertActorCanSetStudentBranch(
+    actor: Actor,
+    row: StudentProfile,
+    branchId: string | null,
+  ) {
+    if (actor.role === UserRole.ADMIN) {
+      return;
+    }
+    if (isSchoolDirector(actor)) {
+      if (!actor.schoolId || actor.schoolId !== row.schoolId) {
+        throw new ForbiddenException('Cannot update students outside your school');
+      }
+      if (branchId) {
+        const b = await this.branches.findOne({ where: { id: branchId } });
+        if (!b || b.schoolId !== actor.schoolId) {
+          throw new BadRequestException('Branch must belong to your school');
+        }
+      }
+      return;
+    }
+    if (actor.role === UserRole.BRANCH_DIRECTOR) {
+      if (!actor.schoolId || !actor.branchId || actor.schoolId !== row.schoolId) {
+        throw new ForbiddenException('Cannot update students outside your branch scope');
+      }
+      if (branchId !== null && branchId !== actor.branchId) {
+        throw new ForbiddenException('You can only assign students to your branch');
+      }
+      return;
+    }
+    throw new ForbiddenException('Insufficient permissions');
+  }
 
   async create(
     actor: Actor,
@@ -99,6 +152,27 @@ export class StudentsService {
     if (body.gradeLevel !== undefined || body.grade_level !== undefined) {
       row.gradeLevel = (body.gradeLevel ?? body.grade_level ?? null) as any;
     }
+
+    if (body.branchId !== undefined || body.branch_id !== undefined) {
+      const branchId = this.normalizeBranchPayload(
+        body.branchId ?? body.branch_id,
+      );
+      await this.assertActorCanSetStudentBranch(actor, row, branchId);
+      row.branchId = branchId;
+      if (branchId) {
+        const b = await this.branches.findOne({ where: { id: branchId } });
+        if (!b) {
+          throw new NotFoundException('Branch not found');
+        }
+        if (row.schoolId && b.schoolId !== row.schoolId) {
+          throw new BadRequestException('Branch must belong to the student school');
+        }
+        if (!row.schoolId) {
+          row.schoolId = b.schoolId;
+        }
+      }
+    }
+
     return this.profiles.save(row);
   }
 }
