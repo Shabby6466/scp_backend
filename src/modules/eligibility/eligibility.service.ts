@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { User } from '../../entities/user.entity';
 import { TeacherEligibilityProfile } from '../../entities/teacher-eligibility-profile.entity';
 import { UserRole } from '../common/enums/database.enum';
 import { UserService } from '../user/user.service';
@@ -23,6 +24,25 @@ export class EligibilityService {
     throw new ForbiddenException('Cannot access this school');
   }
 
+  /** School / branch directors may manage eligibility for staff in their scope (same as teacher list). */
+  private assertCanAccessTargetUser(actor: Actor, target: User) {
+    if (actor.id === target.id) return;
+    if (actor.role === UserRole.ADMIN) return;
+    if (actor.role === UserRole.DIRECTOR && actor.schoolId && target.schoolId === actor.schoolId) {
+      return;
+    }
+    if (
+      actor.role === UserRole.BRANCH_DIRECTOR &&
+      actor.schoolId &&
+      actor.branchId &&
+      target.schoolId === actor.schoolId &&
+      target.branchId === actor.branchId
+    ) {
+      return;
+    }
+    throw new ForbiddenException('Cannot access this profile');
+  }
+
   async listBySchool(actor: Actor, schoolId: string) {
     this.assertCanAccessSchool(actor, schoolId);
     return this.repo.find({
@@ -32,11 +52,19 @@ export class EligibilityService {
   }
 
   async getForUser(actor: Actor, userId: string) {
-    if (actor.role !== UserRole.ADMIN && actor.id !== userId) {
-      // Director/branch director can view staff in their school; keep simple by requiring admin for now.
-      // If needed, expand with proper scope checks based on the target user’s school.
-      throw new ForbiddenException('Cannot access this profile');
+    if (actor.id === userId || actor.role === UserRole.ADMIN) {
+      return this.findProfileOrThrow(userId);
     }
+
+    const target = await this.users.findOneInternal(userId);
+    if (!target) {
+      throw new NotFoundException('User not found');
+    }
+    this.assertCanAccessTargetUser(actor, target);
+    return this.findProfileOrThrow(userId);
+  }
+
+  private async findProfileOrThrow(userId: string) {
     const row = await this.repo.findOne({ where: { userId } });
     if (!row) {
       throw new NotFoundException('Eligibility profile not found');
@@ -45,14 +73,12 @@ export class EligibilityService {
   }
 
   async upsertForUser(actor: Actor, userId: string, dto: UpdateEligibilityProfileDto) {
-    if (actor.role !== UserRole.ADMIN && actor.id !== userId) {
-      throw new ForbiddenException('Cannot update this profile');
-    }
-
     const user = await this.users.findOneInternal(userId);
     if (!user || !user.schoolId) {
       throw new NotFoundException('User not found or not linked to a school');
     }
+
+    this.assertCanAccessTargetUser(actor, user);
 
     let row = await this.repo.findOne({ where: { userId } });
     if (!row) {

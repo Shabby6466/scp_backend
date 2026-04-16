@@ -31,7 +31,7 @@ export class EligibilityController {
   }
 
   @Put('user/:userId')
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR, UserRole.TEACHER)
   upsertForUser(
     @Param('userId') userId: string,
     @Body() dto: UpdateEligibilityProfileDto,
@@ -41,7 +41,7 @@ export class EligibilityController {
   }
 
   @Post('user/:userId/analyze')
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR, UserRole.TEACHER)
   analyze(
     @Param('userId') userId: string,
     @CurrentUser() actor: { id: string; role: UserRole; schoolId: string | null; branchId: string | null },
