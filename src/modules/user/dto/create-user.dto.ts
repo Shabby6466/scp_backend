@@ -13,10 +13,24 @@ export class CreateUserDto {
   @IsEmail()
   email!: string;
 
-  @ApiProperty({ example: 'Jane Doe', description: 'User full name' })
+  @ApiPropertyOptional({
+    example: 'Jane Doe',
+    description: 'User full name (or use first_name + last_name from legacy admin UI)',
+  })
+  @IsOptional()
   @IsString()
   @MinLength(1)
-  name!: string;
+  name?: string;
+
+  @ApiPropertyOptional({ description: 'Split name from legacy admin UI' })
+  @IsOptional()
+  @IsString()
+  first_name?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  last_name?: string;
 
   @ApiProperty({ enum: UserRole, example: UserRole.TEACHER, description: 'User role' })
   @IsEnum(UserRole)
@@ -27,8 +41,43 @@ export class CreateUserDto {
   @IsString()
   schoolId?: string;
 
+  @ApiPropertyOptional({ description: 'snake_case alias for schoolId' })
+  @IsOptional()
+  @IsString()
+  school_id?: string;
+
   @ApiPropertyOptional({ example: 'uuid-of-branch', description: 'Branch ID (if applicable)' })
   @IsOptional()
   @IsString()
   branchId?: string;
+
+  @ApiPropertyOptional({ description: 'snake_case alias for branchId' })
+  @IsOptional()
+  @IsString()
+  branch_id?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  phone?: string | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  hire_date?: string | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  certification_type?: string | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  certification_expiry?: string | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  employment_status?: string | null;
 }

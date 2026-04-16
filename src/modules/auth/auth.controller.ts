@@ -9,7 +9,13 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto, VerifyEmailDto } from './dto/index';
+import {
+  ForgotPasswordDto,
+  LoginDto,
+  RegisterDto,
+  UpdatePasswordDto,
+  VerifyEmailDto,
+} from './dto/index';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 
@@ -42,6 +48,26 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async verifyEmail(@Body() dto: VerifyEmailDto) {
     return this.authService.verifyEmail(dto);
+  }
+
+  @ApiOperation({ summary: 'Request a password reset email (non-enumerating)' })
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    await this.authService.forgotPassword(dto.email);
+    return { message: 'If an account exists, a reset email has been sent.' };
+  }
+
+  @ApiOperation({ summary: 'Update password for the current user' })
+  @Post('update-password')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async updatePassword(
+    @Body() dto: UpdatePasswordDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    await this.authService.updatePassword(user.id, dto.password);
+    return { message: 'Password updated.' };
   }
 
   @Post('resend-verification')

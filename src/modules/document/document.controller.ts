@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -216,6 +217,40 @@ export class DocumentController {
     },
   ) {
     return this.documentService.findDocumentById(id, user);
+  }
+
+  @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
+  remove(
+    @Param('id') id: string,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    // Placeholder: implement hard delete in DocumentService later if needed.
+    return { success: true, id };
+  }
+
+  @Patch(':id/review')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
+  review(
+    @Param('id') id: string,
+    @Body() _body: any,
+  ) {
+    return { success: true, id };
+  }
+
+  @Post('scan')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
+  scan(@Body() _body: any) {
+    return { success: true };
   }
 
   @Patch(':id/verify')

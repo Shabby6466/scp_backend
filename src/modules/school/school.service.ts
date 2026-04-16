@@ -48,7 +48,23 @@ export class SchoolService {
 
   async create(dto: CreateSchoolDto) {
     return this.dataSource.transaction(async (manager) => {
-      let school = manager.create(School, { name: dto.name.trim() });
+      const isApproved = dto.isApproved ?? dto.is_approved ?? false;
+      const approvedAtRaw = dto.approvedAt ?? dto.approved_at ?? null;
+      const approvedAt = approvedAtRaw ? new Date(approvedAtRaw) : null;
+
+      let school = manager.create(School, {
+        name: dto.name.trim(),
+        email: dto.email?.trim() || null,
+        phone: dto.phone?.trim() || null,
+        address: dto.address?.trim() || null,
+        city: dto.city?.trim() || null,
+        state: dto.state?.trim() || null,
+        zipCode: (dto.zipCode ?? dto.zip_code)?.trim() || null,
+        isApproved,
+        approvedAt:
+          approvedAt && !Number.isNaN(approvedAt.getTime()) ? approvedAt : null,
+        approvedBy: isApproved ? 'admin' : null,
+      });
       school = await manager.save(School, school);
 
       const directorId = dto.directorUserId?.trim();
@@ -177,7 +193,100 @@ export class SchoolService {
     const school = await this.schoolRepository.findOne({ where: { id } });
     if (!school) throw new NotFoundException('School not found');
 
-    if (dto.name != null) school.name = dto.name.trim();
+    const str = (v: string | null | undefined) =>
+      v === undefined
+        ? undefined
+        : v === null || v === ''
+          ? null
+          : String(v).trim();
+
+    if (dto.name !== undefined && dto.name != null) {
+      school.name = dto.name.trim();
+    }
+    if (dto.email !== undefined) {
+      const t = str(dto.email);
+      school.email = t === undefined ? school.email : t;
+    }
+    if (dto.phone !== undefined) {
+      const t = str(dto.phone);
+      school.phone = t === undefined ? school.phone : t;
+    }
+    if (dto.address !== undefined) {
+      const t = str(dto.address);
+      school.address = t === undefined ? school.address : t;
+    }
+    if (dto.city !== undefined) {
+      const t = str(dto.city);
+      school.city = t === undefined ? school.city : t;
+    }
+    if (dto.state !== undefined) {
+      const t = str(dto.state);
+      school.state = t === undefined ? school.state : t;
+    }
+    const zipIn = dto.zipCode ?? dto.zip_code;
+    if (zipIn !== undefined) {
+      const t = str(zipIn);
+      school.zipCode = t === undefined ? school.zipCode : t;
+    }
+    if (dto.website !== undefined) {
+      const t = str(dto.website);
+      school.website = t === undefined ? school.website : t;
+    }
+
+    const minAge = dto.minAge ?? dto.min_age;
+    if (minAge !== undefined) {
+      school.minAge = minAge === null ? null : minAge;
+    }
+    const maxAge = dto.maxAge ?? dto.max_age;
+    if (maxAge !== undefined) {
+      school.maxAge = maxAge === null ? null : maxAge;
+    }
+    const cap = dto.totalCapacity ?? dto.total_capacity;
+    if (cap !== undefined) {
+      school.totalCapacity = cap === null ? null : cap;
+    }
+
+    const lic = dto.licenseNumber ?? dto.license_number;
+    if (lic !== undefined) {
+      const t = str(lic);
+      school.licenseNumber = t === undefined ? school.licenseNumber : t;
+    }
+    const cert = dto.certificationNumber ?? dto.certification_number;
+    if (cert !== undefined) {
+      const t = str(cert);
+      school.certificationNumber = t === undefined ? school.certificationNumber : t;
+    }
+
+    const pc = dto.primaryColor ?? dto.primary_color;
+    if (pc !== undefined) {
+      const t = str(pc);
+      school.primaryColor = t === undefined ? school.primaryColor : t;
+    }
+    const logo = dto.logoUrl ?? dto.logo_url;
+    if (logo !== undefined) {
+      const t = str(logo);
+      school.logoUrl = t === undefined ? school.logoUrl : t;
+    }
+
+    const approvedFlag = dto.isApproved ?? dto.is_approved;
+    if (approvedFlag !== undefined) {
+      school.isApproved = approvedFlag;
+    }
+
+    const approvedAtRaw = dto.approvedAt ?? dto.approved_at;
+    if (approvedAtRaw !== undefined) {
+      if (approvedAtRaw === null || approvedAtRaw === '') {
+        school.approvedAt = null;
+      } else {
+        const d = new Date(approvedAtRaw);
+        school.approvedAt = Number.isNaN(d.getTime()) ? null : d;
+      }
+    }
+
+    if (dto.approvedBy !== undefined) {
+      const t = str(dto.approvedBy);
+      school.approvedBy = t === undefined ? school.approvedBy : t;
+    }
 
     return this.schoolRepository.save(school);
   }
@@ -276,5 +385,52 @@ export class SchoolService {
   ) {
     await this.findOne(id, user);
     return this.certificationRecordService.findBySchool(id);
+  }
+
+  async approve(id: string) {
+    const school = await this.schoolRepository.findOne({ where: { id } });
+    if (!school) {
+      throw new NotFoundException('School not found');
+    }
+    school.isApproved = true;
+    school.approvedAt = new Date();
+    school.approvedBy = 'admin';
+    return this.schoolRepository.save(school);
+  }
+
+  async createInspectionType(schoolId: string, body: any) {
+    return this.inspectionTypeService.create(schoolId, body);
+  }
+
+  async updateInspectionType(id: string, body: any) {
+    return this.inspectionTypeService.update(id, body);
+  }
+
+  async removeInspectionType(id: string) {
+    return this.inspectionTypeService.remove(id);
+  }
+
+  async createComplianceRequirement(schoolId: string, body: any) {
+    return this.complianceRequirementService.create(schoolId, body);
+  }
+
+  async updateComplianceRequirement(id: string, body: any) {
+    return this.complianceRequirementService.update(id, body);
+  }
+
+  async removeComplianceRequirement(id: string) {
+    return this.complianceRequirementService.remove(id);
+  }
+
+  async createCertificationRecord(schoolId: string, body: any) {
+    return this.certificationRecordService.create(schoolId, body);
+  }
+
+  async updateCertificationRecord(id: string, body: any) {
+    return this.certificationRecordService.update(id, body);
+  }
+
+  async removeCertificationRecord(id: string) {
+    return this.certificationRecordService.remove(id);
   }
 }

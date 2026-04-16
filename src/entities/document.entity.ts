@@ -66,7 +66,7 @@ export class DocumentType extends BaseEntity {
   @OneToMany(() => Document, (doc) => doc.documentType)
   documents!: Document[];
 
-  @ManyToMany(() => User, (user) => user.id)
+  @ManyToMany(() => User, (user) => user.requiredDocTypes)
   @JoinTable({
     name: 'UserRequiredDocumentType',
     joinColumn: { name: 'document_type_id', referencedColumnName: 'id' },

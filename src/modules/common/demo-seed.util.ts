@@ -67,6 +67,129 @@ export function buildDemoSeedRepositories(
   };
 }
 
+/**
+ * When SEED_REPLACE_DEMO=true, deletes the demo school created by seed (matched by
+ * DEMO_SCHOOL_NAME and approvedBy === 'seed') and all related rows so a fresh demo
+ * can be inserted. Returns true if a school was removed.
+ */
+export async function removeSeededDemoSchoolIfRequested(
+  r: DemoSeedRepositories,
+  logger: DemoSeedLogger = console,
+): Promise<boolean> {
+  if (process.env.SEED_REPLACE_DEMO !== 'true') {
+    return false;
+  }
+
+  const schoolName =
+    process.env.DEMO_SCHOOL_NAME?.trim() || 'Sunshine Preschool';
+  const school = await r.schools.findOne({
+    where: { name: schoolName, approvedBy: 'seed' },
+  });
+  if (!school) {
+    logger.log(
+      '[demo-seed] SEED_REPLACE_DEMO: no school with approvedBy=seed and matching DEMO_SCHOOL_NAME — nothing to remove.',
+    );
+    return false;
+  }
+
+  const sid = school.id;
+  const ds = r.schools.manager.connection;
+  const qr = ds.createQueryRunner();
+  await qr.connect();
+  await qr.startTransaction();
+  try {
+    const q = (sql: string, params: unknown[] = []) =>
+      qr.query(sql, params);
+
+    await q(
+      `DELETE FROM "Document" d WHERE
+        d."document_type_id" IN (SELECT id FROM "DocumentType" WHERE "school_id" = $1)
+        OR d."student_profile_id" IN (SELECT id FROM "StudentProfile" WHERE "school_id" = $1)
+        OR d."owner_user_id" IN (
+          SELECT u.id FROM "User" u WHERE u."school_id" = $1
+          UNION
+          SELECT u.id FROM "User" u WHERE u."branch_id" IN (
+            SELECT b.id FROM "Branch" b WHERE b."school_id" = $1
+          )
+        )`,
+      [sid],
+    );
+
+    await q(
+      `DELETE FROM "UserRequiredDocumentType" WHERE "document_type_id" IN (
+        SELECT id FROM "DocumentType" WHERE "school_id" = $1
+      )`,
+      [sid],
+    );
+
+    await q(`DELETE FROM "CertificationRecord" WHERE "school_id" = $1`, [sid]);
+    await q(`DELETE FROM "ComplianceRequirement" WHERE "school_id" = $1`, [sid]);
+    await q(`DELETE FROM "Invitation" WHERE "school_id" = $1`, [sid]);
+    await q(
+      `DELETE FROM "StudentParent" WHERE "student_profile_id" IN (
+        SELECT id FROM "StudentProfile" WHERE "school_id" = $1
+      )`,
+      [sid],
+    );
+    await q(`DELETE FROM "StudentProfile" WHERE "school_id" = $1`, [sid]);
+
+    const userSub = `SELECT u.id FROM "User" u WHERE u."school_id" = $1
+      OR u."branch_id" IN (SELECT b.id FROM "Branch" b WHERE b."school_id" = $1)`;
+
+    await q(
+      `DELETE FROM "TeacherProfile" WHERE "user_id" IN (${userSub})`,
+      [sid],
+    );
+    await q(
+      `DELETE FROM "ParentProfile" WHERE "user_id" IN (${userSub})`,
+      [sid],
+    );
+    await q(
+      `DELETE FROM "DirectorProfile" WHERE "user_id" IN (${userSub})`,
+      [sid],
+    );
+    await q(
+      `DELETE FROM "BranchDirectorProfile" WHERE "user_id" IN (${userSub})`,
+      [sid],
+    );
+    await q(`DELETE FROM "TeacherEligibilityProfile" WHERE "school_id" = $1`, [
+      sid,
+    ]);
+
+    await q(`DELETE FROM "CertificationType" WHERE "school_id" = $1`, [sid]);
+    await q(`DELETE FROM "InspectionType" WHERE "school_id" = $1`, [sid]);
+    await q(`DELETE FROM "DocumentType" WHERE "school_id" = $1`, [sid]);
+    await q(`DELETE FROM "ComplianceCategory" WHERE "school_id" = $1`, [sid]);
+    await q(`DELETE FROM "TeacherPosition" WHERE "school_id" = $1`, [sid]);
+
+    await q(
+      `UPDATE "User" SET "assigned_by_id" = NULL WHERE "school_id" = $1 OR "branch_id" IN (
+        SELECT b.id FROM "Branch" b WHERE b."school_id" = $1
+      )`,
+      [sid],
+    );
+    await q(
+      `DELETE FROM "User" WHERE "school_id" = $1 OR "branch_id" IN (
+        SELECT b.id FROM "Branch" b WHERE b."school_id" = $1
+      )`,
+      [sid],
+    );
+    await q(`DELETE FROM "Branch" WHERE "school_id" = $1`, [sid]);
+    await q(`DELETE FROM "School" WHERE "id" = $1`, [sid]);
+
+    await qr.commitTransaction();
+    logger.log(
+      `[demo-seed] SEED_REPLACE_DEMO: removed seeded demo school "${schoolName}" (${sid}).`,
+    );
+    return true;
+  } catch (e) {
+    await qr.rollbackTransaction();
+    throw e;
+  } finally {
+    await qr.release();
+  }
+}
+
 const hash = (plain: string) => bcrypt.hash(plain, 12);
 
 /**
@@ -82,8 +205,16 @@ export async function seedDemoData(
     return;
   }
 
-  if ((await r.schools.count()) > 0) {
-    logger.log('[demo-seed] Schools already present — skipping sample data.');
+  const demoRemoved = await removeSeededDemoSchoolIfRequested(r, logger);
+  const schoolCount = await r.schools.count();
+  if (schoolCount > 0) {
+    if (demoRemoved) {
+      logger.log(
+        '[demo-seed] Demo school removed; other schools remain — skipping re-seed of demo data.',
+      );
+    } else {
+      logger.log('[demo-seed] Schools already present — skipping sample data.');
+    }
     return;
   }
 

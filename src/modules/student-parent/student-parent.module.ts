@@ -5,13 +5,14 @@ import { StudentParentController } from './student-parent.controller';
 import { StudentProfileController } from './student-profile.controller';
 import { StudentParent } from '../../entities/student-parent.entity';
 import { StudentProfile } from '../../entities/student-profile.entity';
+import { Branch } from '../../entities/branch.entity';
 import { DocumentType } from '../../entities/document.entity';
 import { UserModule } from '../user/user.module';
 import { StudentProfileService } from './student-profile.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([StudentParent, StudentProfile, DocumentType]),
+    TypeOrmModule.forFeature([StudentParent, StudentProfile, Branch, DocumentType]),
     forwardRef(() => UserModule),
   ],
   controllers: [StudentParentController, StudentProfileController],

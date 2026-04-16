@@ -12,9 +12,11 @@ import { UserRole } from '../common/enums/database.enum';
 import { StudentParent } from '../../entities/student-parent.entity';
 import { User } from '../../entities/user.entity';
 import { StudentProfile } from '../../entities/student-profile.entity';
+import { Branch } from '../../entities/branch.entity';
 import { isSchoolDirector } from '../auth/school-scope.util';
 import { UserService } from '../user/user.service';
 import type { RegisterChildDto } from './dto/register-child.dto';
+import { UpdateStudentProfileDto } from './dto/update-student-profile.dto';
 
 type JwtUser = {
   id: string;
@@ -32,8 +34,39 @@ export class StudentParentService {
     private readonly userService: UserService,
     @InjectRepository(StudentProfile)
     private readonly studentProfileRepository: Repository<StudentProfile>,
+    @InjectRepository(Branch)
+    private readonly branchRepository: Repository<Branch>,
     private readonly dataSource: DataSource,
   ) { }
+
+  private normalizeOptionalUuidInput(
+    raw: string | null | undefined,
+  ): string | null | undefined {
+    if (raw === undefined) return undefined;
+    if (raw === null) return null;
+    const t = String(raw).trim();
+    if (!t) return null;
+    const lower = t.toLowerCase();
+    if (
+      lower === '_none_' ||
+      lower === 'none' ||
+      lower === '_null_' ||
+      lower === 'null' ||
+      lower === 'undefined'
+    ) {
+      return null;
+    }
+    return t;
+  }
+
+  private async assertBranchInSchool(branchId: string, schoolId: string) {
+    const b = await this.branchRepository.findOne({ where: { id: branchId } });
+    if (!b || b.schoolId !== schoolId) {
+      throw new BadRequestException(
+        'Branch must belong to the selected school',
+      );
+    }
+  }
 
   private async assertParentRecord(parentId: string) {
     const parent = await this.userService.findOneInternal(parentId);
@@ -313,6 +346,127 @@ export class StudentParentService {
 
   async getStudentProfileById(profileId: string, user: JwtUser) {
     await this.assertCanAccessStudentProfileView(profileId, user);
+    return this.loadStudentProfile(profileId);
+  }
+
+  async updateStudentProfile(
+    profileId: string,
+    dto: UpdateStudentProfileDto,
+    user: JwtUser,
+  ) {
+    await this.assertCanAccessStudentProfileView(profileId, user);
+    const profile = await this.loadStudentProfile(profileId);
+
+    const first = dto.firstName ?? dto.first_name;
+    const last = dto.lastName ?? dto.last_name;
+    const dobRaw = dto.dateOfBirth ?? dto.date_of_birth;
+    const grade = dto.gradeLevel ?? dto.grade_level;
+    const schoolIn =
+      dto.schoolId !== undefined || dto.school_id !== undefined
+        ? this.normalizeOptionalUuidInput(dto.schoolId ?? dto.school_id)
+        : undefined;
+    const branchIn =
+      dto.branchId !== undefined || dto.branch_id !== undefined
+        ? this.normalizeOptionalUuidInput(dto.branchId ?? dto.branch_id)
+        : undefined;
+
+    if (
+      first === undefined &&
+      last === undefined &&
+      dobRaw === undefined &&
+      grade === undefined &&
+      schoolIn === undefined &&
+      branchIn === undefined
+    ) {
+      throw new BadRequestException('No fields to update');
+    }
+
+    if (first !== undefined) {
+      const t = first?.trim();
+      if (!t) {
+        throw new BadRequestException('firstName cannot be empty');
+      }
+      profile.firstName = t;
+    }
+    if (last !== undefined) {
+      const t = last?.trim();
+      if (!t) {
+        throw new BadRequestException('lastName cannot be empty');
+      }
+      profile.lastName = t;
+    }
+    if (dobRaw !== undefined) {
+      if (dobRaw === null || dobRaw === '') {
+        profile.dateOfBirth = null;
+      } else {
+        const s = String(dobRaw).trim();
+        const d = new Date(`${s}T12:00:00.000Z`);
+        if (Number.isNaN(d.getTime())) {
+          throw new BadRequestException('Invalid dateOfBirth');
+        }
+        profile.dateOfBirth = d;
+      }
+    }
+    if (grade !== undefined) {
+      profile.gradeLevel =
+        grade === null || String(grade).trim() === ''
+          ? null
+          : String(grade).trim();
+    }
+
+    if (schoolIn !== undefined || branchIn !== undefined) {
+      if (user.role !== UserRole.ADMIN && !isSchoolDirector(user)) {
+        throw new ForbiddenException(
+          'Only administrators or school directors can change school or branch',
+        );
+      }
+      if (user.role !== UserRole.ADMIN && isSchoolDirector(user)) {
+        if (
+          schoolIn !== undefined &&
+          schoolIn !== null &&
+          schoolIn !== user.schoolId
+        ) {
+          throw new ForbiddenException(
+            'Cannot assign a student to a different school',
+          );
+        }
+      }
+
+      if (schoolIn !== undefined) {
+        profile.schoolId = schoolIn ?? null;
+      }
+
+      if (profile.branchId && profile.schoolId) {
+        const existingBranch = await this.branchRepository.findOne({
+          where: { id: profile.branchId },
+        });
+        if (
+          !existingBranch ||
+          existingBranch.schoolId !== profile.schoolId
+        ) {
+          profile.branchId = null;
+        }
+      }
+      if (!profile.schoolId) {
+        profile.branchId = null;
+      }
+
+      if (branchIn !== undefined) {
+        if (branchIn) {
+          if (!profile.schoolId) {
+            throw new BadRequestException(
+              'Assign a school before assigning a branch',
+            );
+          }
+          await this.assertBranchInSchool(branchIn, profile.schoolId);
+          profile.branchId = branchIn;
+        } else {
+          profile.branchId = null;
+        }
+      }
+    }
+
+    await this.studentProfileRepository.save(profile);
     return this.loadStudentProfile(profileId);
   }
 

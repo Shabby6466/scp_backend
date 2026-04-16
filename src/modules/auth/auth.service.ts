@@ -314,6 +314,26 @@ export class AuthService {
     await this.sendVerificationOtp(email, true);
   }
 
+  /**
+   * Password reset is not fully implemented (no reset tokens yet). For now, this
+   * is a non-enumerating endpoint that (when OTP email is enabled) sends an OTP
+   * to the requested email so dev flows can proceed.
+   */
+  async forgotPassword(email: string): Promise<void> {
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await this.userService.findOneByEmailInternal(normalizedEmail);
+    if (!user) {
+      // Do not leak whether the email exists.
+      return;
+    }
+    await this.sendVerificationOtp(normalizedEmail, false);
+  }
+
+  async updatePassword(userId: string, password: string): Promise<void> {
+    const hashed = await bcrypt.hash(password, 12);
+    await this.userService.setPassword(userId, hashed);
+  }
+
   /** When OTP emails are off, this is not called (see UserService). No-op if invoked. */
   async sendInviteOtp(email: string, inviterName?: string): Promise<void> {
     const { otpEmailVerificationEnabled } = await this.settings.getPublic();

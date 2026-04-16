@@ -7,16 +7,18 @@ import { AuthModule } from '../auth/auth.module';
 import { SettingsModule } from '../settings/settings.module';
 import { SchoolModule } from '../school/school.module';
 import { BranchModule } from '../branch/branch.module';
+import { TeacherProfile } from '../../entities/teacher-profile.entity';
+import { TeacherController } from './teacher.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, TeacherProfile]),
     forwardRef(() => AuthModule),
     forwardRef(() => SchoolModule),
     forwardRef(() => BranchModule),
     SettingsModule,
   ],
-  controllers: [UserController],
+  controllers: [UserController, TeacherController],
   providers: [UserService],
   exports: [UserService],
 })

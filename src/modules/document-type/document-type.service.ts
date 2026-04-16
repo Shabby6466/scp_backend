@@ -231,6 +231,16 @@ export class DocumentTypeService {
     return this.documentTypeRepository.save(existing);
   }
 
+  async remove(id: string, user: CurrentUser) {
+    const existing = await this.documentTypeRepository.findOne({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException('Document type not found');
+    }
+    this.assertActorCanAccessDocType(user, existing);
+    await this.documentTypeRepository.delete(id);
+    return { success: true };
+  }
+
   async assignUsers(
     documentTypeId: string,
     userIds: string[],
