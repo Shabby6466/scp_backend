@@ -11,10 +11,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not, IsNull, In } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { User } from '../../entities/user.entity';
+import { TeacherProfile } from '../../entities/teacher-profile.entity';
 import { AuthService } from '../auth/auth.service';
 import { SettingsService } from '../settings/settings.service';
 import { CreateUserDto } from './dto/create-user.dto';
-import { UserRole } from '../common/enums/database.enum';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { EmploymentStatus, UserRole } from '../common/enums/database.enum';
 import {
   canManageSchoolBranches,
   isSchoolDirector,
@@ -28,6 +30,8 @@ export class UserService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(TeacherProfile)
+    private readonly teacherProfileRepository: Repository<TeacherProfile>,
     @Inject(forwardRef(() => SchoolService))
     private readonly schoolService: SchoolService,
     @Inject(forwardRef(() => BranchService))
@@ -63,6 +67,8 @@ export class UserService {
     if (existing) {
       throw new ConflictException('Email already registered');
     }
+
+    const displayName = this.resolveDisplayNameForCreate(dto);
 
     const { schoolId, branchId } = await this.resolveScopeForCreate(
       dto,
@@ -144,13 +150,22 @@ export class UserService {
 
     let resolvedSchoolId: string | null = schoolId;
     let resolvedBranchId: string | null = branchId;
-    if (dto.role === UserRole.TEACHER && branchId) {
+    if (
+      (dto.role === UserRole.TEACHER || dto.role === UserRole.PARENT) &&
+      branchId
+    ) {
       const b = await this.branchService.findOneById(branchId);
       if (!b) {
         throw new NotFoundException('Branch not found');
       }
       resolvedSchoolId = b.schoolId;
       resolvedBranchId = branchId;
+    } else if (
+      (dto.role === UserRole.TEACHER || dto.role === UserRole.PARENT) &&
+      schoolId
+    ) {
+      resolvedSchoolId = schoolId;
+      resolvedBranchId = branchId ?? null;
     }
 
     const { otpEmailVerificationEnabled } = await this.settings.getPublic();
@@ -159,17 +174,20 @@ export class UserService {
 
     const user = this.userRepository.create({
       email,
-      name: dto.name.trim(),
+      name: displayName,
+      phone: dto.phone?.trim() ? dto.phone.trim() : null,
       role: dto.role,
       schoolId:
         dto.role === UserRole.DIRECTOR ||
           dto.role === UserRole.BRANCH_DIRECTOR
           ? (schoolId ?? null)
-          : dto.role === UserRole.TEACHER
+          : dto.role === UserRole.TEACHER || dto.role === UserRole.PARENT
             ? resolvedSchoolId
             : null,
       branchId:
-        dto.role === UserRole.TEACHER || dto.role === UserRole.BRANCH_DIRECTOR
+        dto.role === UserRole.TEACHER ||
+          dto.role === UserRole.BRANCH_DIRECTOR ||
+          dto.role === UserRole.PARENT
           ? resolvedBranchId
           : null,
       staffPosition: null,
@@ -178,6 +196,10 @@ export class UserService {
     });
 
     await this.userRepository.save(user);
+
+    if (dto.role === UserRole.TEACHER) {
+      await this.applyTeacherProfileFromCreateDto(user.id, dto);
+    }
 
     const result = await this.userRepository.findOne({
       where: { id: user.id },
@@ -629,12 +651,7 @@ export class UserService {
 
   async updateUser(
     targetId: string,
-    dto: {
-      name?: string;
-      password?: string;
-      schoolId?: string;
-      branchId?: string;
-    },
+    dto: UpdateUserDto,
     actor: {
       id: string;
       role: UserRole;
@@ -642,18 +659,55 @@ export class UserService {
       branchId: string | null;
     },
   ) {
+    const rawSchool = dto.schoolId ?? dto.school_id;
+    const rawBranch = dto.branchId ?? dto.branch_id;
+    const schoolPatchRaw =
+      rawSchool === undefined ? undefined : this.normalizeUuidField(rawSchool);
+    const branchPatchRaw =
+      rawBranch === undefined ? undefined : this.normalizeUuidField(rawBranch);
+
     const adminScopePatch =
       actor.role === UserRole.ADMIN &&
-      (dto.schoolId !== undefined || dto.branchId !== undefined);
+      (schoolPatchRaw !== undefined ||
+        branchPatchRaw !== undefined ||
+        dto.role !== undefined);
+
+    const hasTeacherPatch =
+      dto.hire_date !== undefined ||
+      dto.certification_type !== undefined ||
+      dto.certification_expiry !== undefined ||
+      dto.background_check_date !== undefined ||
+      dto.background_check_expiry !== undefined ||
+      dto.employment_status !== undefined ||
+      dto.notes !== undefined;
+
+    const hasContactPatch =
+      dto.email !== undefined || dto.phone !== undefined;
+
+    const derivedName =
+      dto.first_name !== undefined || dto.last_name !== undefined
+        ? [dto.first_name, dto.last_name]
+            .map((x) => (x == null ? '' : String(x).trim()))
+            .filter(Boolean)
+            .join(' ')
+            .trim()
+        : '';
+
+    const nameOut =
+      dto.name !== undefined ? dto.name.trim() : derivedName || undefined;
+
     if (
-      dto.name === undefined &&
+      nameOut === undefined &&
       (dto.password === undefined || dto.password === '') &&
-      !adminScopePatch
+      !adminScopePatch &&
+      !hasContactPatch &&
+      !hasTeacherPatch
     ) {
       throw new BadRequestException(
-        'Provide name and/or a new password to update',
+        'Provide at least one field to update (name, password, email, phone, assignment, role, or teacher profile fields)',
       );
     }
+
     const target = await this.userRepository.findOne({
       where: { id: targetId },
     });
@@ -663,17 +717,23 @@ export class UserService {
 
     if (target.role === UserRole.ADMIN && adminScopePatch) {
       throw new BadRequestException(
-        'Cannot assign school or branch to a platform admin',
+        'Cannot assign school, branch, or role to a platform admin',
       );
     }
 
-    if (actor.id === target.id) {
-      if (actor.role !== UserRole.ADMIN) {
+    const isSelf = actor.id === target.id;
+    if (isSelf && actor.role !== UserRole.ADMIN) {
+      if (
+        schoolPatchRaw !== undefined ||
+        branchPatchRaw !== undefined ||
+        dto.role !== undefined ||
+        hasTeacherPatch
+      ) {
         throw new ForbiddenException(
-          'You cannot change your own account. Ask a supervisor.',
+          'You can only update profile fields (name, email, phone, password) on your own account',
         );
       }
-    } else {
+    } else if (!isSelf) {
       await this.assertSuperiorCanPatchUser(actor, target);
     }
 
@@ -682,16 +742,44 @@ export class UserService {
       password?: string;
       schoolId?: string | null;
       branchId?: string | null;
+      email?: string;
+      phone?: string | null;
+      role?: UserRole;
     } = {};
-    if (dto.name !== undefined) {
-      data.name = dto.name.trim();
+
+    if (nameOut !== undefined && nameOut.length > 0) {
+      data.name = nameOut;
     }
     if (dto.password !== undefined && dto.password.length > 0) {
       data.password = await bcrypt.hash(dto.password, 12);
     }
 
-    if (actor.role === UserRole.ADMIN && dto.schoolId !== undefined) {
-      const sid = dto.schoolId.trim();
+    if (dto.email !== undefined) {
+      const raw = dto.email;
+      if (raw === null || raw === '') {
+        throw new BadRequestException('Email cannot be empty');
+      }
+      const em = raw.toLowerCase().trim();
+      if (em !== target.email) {
+        const taken = await this.userRepository.findOne({ where: { email: em } });
+        if (taken && taken.id !== target.id) {
+          throw new ConflictException('Email already in use');
+        }
+      }
+      data.email = em;
+    }
+
+    if (dto.phone !== undefined) {
+      const p = dto.phone;
+      data.phone =
+        p === null || String(p).trim() === '' ? null : String(p).trim();
+    }
+
+    if (actor.role === UserRole.ADMIN && schoolPatchRaw !== undefined) {
+      const sid =
+        schoolPatchRaw === null || schoolPatchRaw === ''
+          ? ''
+          : String(schoolPatchRaw).trim();
       if (target.role === UserRole.DIRECTOR) {
         if (sid) {
           const taken = await this.userRepository.findOne({
@@ -712,11 +800,16 @@ export class UserService {
         if (!sid) {
           data.branchId = null;
         }
+      } else if (target.role === UserRole.TEACHER) {
+        data.schoolId = sid || null;
       }
     }
 
-    if (actor.role === UserRole.ADMIN && dto.branchId !== undefined) {
-      const bid = dto.branchId.trim();
+    if (actor.role === UserRole.ADMIN && branchPatchRaw !== undefined) {
+      const bid =
+        branchPatchRaw === null || branchPatchRaw === ''
+          ? ''
+          : String(branchPatchRaw).trim();
       if (target.role === UserRole.TEACHER) {
         if (bid) {
           const b = await this.branchService.findOneById(bid);
@@ -724,6 +817,7 @@ export class UserService {
             throw new NotFoundException('Branch not found');
           }
           data.branchId = bid;
+          data.schoolId = b.schoolId;
         } else {
           data.branchId = null;
         }
@@ -737,12 +831,83 @@ export class UserService {
       }
     }
 
+    const newRole = this.parseOptionalRole(dto.role);
+    if (actor.role === UserRole.ADMIN && newRole !== undefined && newRole !== target.role) {
+      if (target.role === UserRole.ADMIN) {
+        throw new BadRequestException('Cannot change platform admin role');
+      }
+      if (newRole === UserRole.DIRECTOR) {
+        const sid =
+          (data.schoolId as string | null | undefined) ??
+          (schoolPatchRaw !== undefined
+            ? schoolPatchRaw === null || schoolPatchRaw === ''
+              ? null
+              : String(schoolPatchRaw).trim()
+            : target.schoolId);
+        if (!sid) {
+          throw new BadRequestException('schoolId is required when assigning director');
+        }
+        const taken = await this.userRepository.findOne({
+          where: {
+            role: UserRole.DIRECTOR,
+            schoolId: sid,
+            id: Not(target.id),
+          },
+        });
+        if (taken) {
+          throw new ConflictException('This school already has a director');
+        }
+        data.role = newRole;
+        data.schoolId = sid;
+        data.branchId = null;
+      } else {
+        data.role = newRole;
+      }
+    }
+
     await this.userRepository.update(targetId, data);
+
+    if (hasTeacherPatch && target.role === UserRole.TEACHER) {
+      await this.applyTeacherProfileFromUpdateDto(targetId, dto);
+    }
 
     return this.userRepository.findOne({
       where: { id: targetId },
       relations: ['school', 'branch'],
     });
+  }
+
+  private async applyTeacherProfileFromUpdateDto(
+    userId: string,
+    dto: UpdateUserDto,
+  ) {
+    let profile = await this.teacherProfileRepository.findOne({
+      where: { userId },
+    });
+    if (!profile) {
+      profile = this.teacherProfileRepository.create({ userId });
+    }
+    const hire = this.parseOptionalDate(dto.hire_date);
+    if (hire !== undefined) profile.hireDate = hire;
+    if (dto.certification_type !== undefined) {
+      profile.certificationType =
+        dto.certification_type === null || dto.certification_type === ''
+          ? null
+          : String(dto.certification_type).trim();
+    }
+    const certExp = this.parseOptionalDate(dto.certification_expiry);
+    if (certExp !== undefined) profile.certificationExpiry = certExp;
+    const bg = this.parseOptionalDate(dto.background_check_date);
+    if (bg !== undefined) profile.backgroundCheckDate = bg;
+    const bgx = this.parseOptionalDate(dto.background_check_expiry);
+    if (bgx !== undefined) profile.backgroundCheckExpiry = bgx;
+    if (dto.notes !== undefined) {
+      profile.notes =
+        dto.notes === null ? null : String(dto.notes);
+    }
+    const es = this.parseEmploymentStatus(dto.employment_status);
+    if (es !== undefined) profile.employmentStatus = es;
+    await this.teacherProfileRepository.save(profile);
   }
 
   private async assertBranchInSchool(branchId: string, schoolId: string) {
@@ -863,23 +1028,137 @@ export class UserService {
       }
       if (
         dto.role !== UserRole.TEACHER &&
-        dto.role !== UserRole.BRANCH_DIRECTOR
+        dto.role !== UserRole.BRANCH_DIRECTOR &&
+        dto.role !== UserRole.PARENT
       ) {
         throw new ForbiddenException(
-          'You can only create teachers or branch directors',
+          'You can only create teachers, branch directors, or parents for your school',
         );
       }
       return;
     }
     if (currentUser.role === UserRole.BRANCH_DIRECTOR) {
-      if (dto.role !== UserRole.TEACHER) {
+      if (dto.role !== UserRole.TEACHER && dto.role !== UserRole.PARENT) {
         throw new ForbiddenException(
-          'You can only create teachers for your branch',
+          'You can only create teachers or parents for your branch',
         );
       }
       return;
     }
     throw new ForbiddenException('Insufficient permissions');
+  }
+
+  /**
+   * UI often sends placeholders instead of null/omit (e.g. Select value "_none_").
+   * Never pass those to Postgres uuid columns or TypeORM findOneById.
+   */
+  private normalizeUuidField(
+    raw: string | null | undefined,
+  ): string | null | undefined {
+    if (raw === undefined) return undefined;
+    if (raw === null) return null;
+    const t = String(raw).trim();
+    if (!t) return null;
+    const lower = t.toLowerCase();
+    if (
+      lower === '_none_' ||
+      lower === 'none' ||
+      lower === '_null_' ||
+      lower === 'null' ||
+      lower === 'undefined'
+    ) {
+      return null;
+    }
+    return t;
+  }
+
+  private pickSchoolId(dto: CreateUserDto): string | null {
+    const merged = dto.schoolId ?? dto.school_id;
+    const n = this.normalizeUuidField(merged);
+    return n ?? null;
+  }
+
+  private pickBranchId(dto: CreateUserDto): string | null {
+    const merged = dto.branchId ?? dto.branch_id;
+    const n = this.normalizeUuidField(merged);
+    return n ?? null;
+  }
+
+  private resolveDisplayNameForCreate(dto: CreateUserDto): string {
+    const fromSplit = [dto.first_name, dto.last_name]
+      .filter((x) => x != null && String(x).trim() !== '')
+      .map((x) => String(x).trim())
+      .join(' ')
+      .trim();
+    const fromName = dto.name?.trim() ?? '';
+    const out = fromName.length > 0 ? fromName : fromSplit;
+    if (!out) {
+      throw new BadRequestException(
+        'Name is required (use name or first_name and last_name)',
+      );
+    }
+    return out;
+  }
+
+  private parseOptionalDate(
+    raw: string | null | undefined,
+  ): Date | null | undefined {
+    if (raw === undefined) return undefined;
+    if (raw === null || String(raw).trim() === '') return null;
+    const d = new Date(raw);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  private parseEmploymentStatus(
+    raw: string | null | undefined,
+  ): EmploymentStatus | undefined {
+    if (raw === undefined) return undefined;
+    if (raw === null || String(raw).trim() === '') return undefined;
+    const k = String(raw).trim().toUpperCase().replace(/-/g, '_');
+    const allowed = Object.values(EmploymentStatus) as string[];
+    if (allowed.includes(k)) return k as EmploymentStatus;
+    return undefined;
+  }
+
+  private async applyTeacherProfileFromCreateDto(
+    userId: string,
+    dto: CreateUserDto,
+  ) {
+    let profile = await this.teacherProfileRepository.findOne({
+      where: { userId },
+    });
+    if (!profile) {
+      profile = this.teacherProfileRepository.create({ userId });
+    }
+    if (dto.phone?.trim()) {
+      profile.phone = dto.phone.trim();
+    }
+    const hire = this.parseOptionalDate(dto.hire_date);
+    if (hire !== undefined) profile.hireDate = hire;
+    if (dto.certification_type !== undefined) {
+      profile.certificationType =
+        dto.certification_type === null || dto.certification_type === ''
+          ? null
+          : String(dto.certification_type).trim();
+    }
+    const certExp = this.parseOptionalDate(dto.certification_expiry);
+    if (certExp !== undefined) profile.certificationExpiry = certExp;
+    const es = this.parseEmploymentStatus(dto.employment_status);
+    if (es !== undefined) profile.employmentStatus = es;
+    await this.teacherProfileRepository.save(profile);
+  }
+
+  private parseOptionalRole(
+    role: string | null | undefined,
+  ): UserRole | undefined {
+    if (role === undefined) return undefined;
+    if (role === null) return undefined;
+    const s = String(role).trim();
+    if (!s) return undefined;
+    const key = s.toUpperCase().replace(/-/g, '_');
+    const all = Object.values(UserRole) as string[];
+    if (all.includes(key)) return key as UserRole;
+    throw new BadRequestException(`Invalid role: ${role}`);
   }
 
   private async resolveScopeForCreate(
@@ -890,25 +1169,31 @@ export class UserService {
       branchId: string | null;
     },
   ): Promise<{ schoolId: string | null; branchId: string | null }> {
+    const sId = this.pickSchoolId(dto);
+    const bId = this.pickBranchId(dto);
+
     if (dto.role === UserRole.ADMIN) {
       return { schoolId: null, branchId: null };
     }
     if (currentUser.role === UserRole.ADMIN) {
       if (dto.role === UserRole.DIRECTOR) {
-        return { schoolId: dto.schoolId ?? null, branchId: null };
+        return { schoolId: sId, branchId: null };
       }
       if (dto.role === UserRole.BRANCH_DIRECTOR) {
-        if (dto.branchId) {
-          const b = await this.branchService.findOneById(dto.branchId);
+        if (bId) {
+          const b = await this.branchService.findOneById(bId);
           if (!b) {
             throw new NotFoundException('Branch not found');
           }
-          return { schoolId: b.schoolId, branchId: dto.branchId };
+          return { schoolId: b.schoolId, branchId: bId };
         }
-        return { schoolId: dto.schoolId ?? null, branchId: null };
+        return { schoolId: sId, branchId: null };
       }
       if (dto.role === UserRole.TEACHER) {
-        return { schoolId: null, branchId: dto.branchId ?? null };
+        return { schoolId: sId, branchId: bId };
+      }
+      if (dto.role === UserRole.PARENT) {
+        return { schoolId: sId, branchId: bId };
       }
       return { schoolId: null, branchId: null };
     }
@@ -917,12 +1202,15 @@ export class UserService {
         throw new ForbiddenException('Your account is not linked to a school');
       }
       if (dto.role === UserRole.BRANCH_DIRECTOR) {
-        if (dto.branchId) {
-          return { schoolId: currentUser.schoolId, branchId: dto.branchId };
+        if (bId) {
+          return { schoolId: currentUser.schoolId, branchId: bId };
         }
         return { schoolId: currentUser.schoolId, branchId: null };
       }
-      return { schoolId: null, branchId: dto.branchId ?? null };
+      if (dto.role === UserRole.PARENT) {
+        return { schoolId: currentUser.schoolId, branchId: bId };
+      }
+      return { schoolId: null, branchId: bId };
     }
     if (currentUser.role === UserRole.BRANCH_DIRECTOR) {
       if (!currentUser.branchId || !currentUser.schoolId) {
@@ -1006,6 +1294,10 @@ export class UserService {
       data.password = newPasswordHash;
     }
     await this.userRepository.update(userId, data);
+  }
+
+  async setPassword(userId: string, passwordHash: string) {
+    await this.userRepository.update(userId, { password: passwordHash });
   }
 
   async findOneByEmailWithRelations(email: string, relations: string[]) {

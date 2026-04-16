@@ -83,6 +83,85 @@ export class SchoolController {
     return this.schoolService.listCertificationRecords(id, user);
   }
 
+  @Patch(':id/approve')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  approve(
+    @Param('id') id: string,
+    @CurrentUser() user: { role: UserRole; schoolId: string | null },
+  ) {
+    return this.schoolService.approve(id);
+  }
+
+  @Post(':id/inspection-types')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
+  createInspectionType(@Param('id') id: string, @Body() body: any) {
+    return this.schoolService.createInspectionType(id, body);
+  }
+
+  @Patch(':id/inspection-types/:inspectionTypeId')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
+  updateInspectionType(
+    @Param('inspectionTypeId') inspectionTypeId: string,
+    @Body() body: any,
+  ) {
+    return this.schoolService.updateInspectionType(inspectionTypeId, body);
+  }
+
+  @Delete(':id/inspection-types/:inspectionTypeId')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
+  removeInspectionType(@Param('inspectionTypeId') inspectionTypeId: string) {
+    return this.schoolService.removeInspectionType(inspectionTypeId);
+  }
+
+  @Post(':id/compliance-requirements')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
+  createComplianceRequirement(@Param('id') id: string, @Body() body: any) {
+    return this.schoolService.createComplianceRequirement(id, body);
+  }
+
+  @Patch(':id/compliance-requirements/:requirementId')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
+  updateComplianceRequirement(
+    @Param('requirementId') requirementId: string,
+    @Body() body: any,
+  ) {
+    return this.schoolService.updateComplianceRequirement(requirementId, body);
+  }
+
+  @Delete(':id/compliance-requirements/:requirementId')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
+  removeComplianceRequirement(@Param('requirementId') requirementId: string) {
+    return this.schoolService.removeComplianceRequirement(requirementId);
+  }
+
+  @Post(':id/certification-records')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
+  createCertificationRecord(@Param('id') id: string, @Body() body: any) {
+    return this.schoolService.createCertificationRecord(id, body);
+  }
+
+  @Patch(':id/certification-records/:recordId')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
+  updateCertificationRecord(@Param('recordId') recordId: string, @Body() body: any) {
+    return this.schoolService.updateCertificationRecord(recordId, body);
+  }
+
+  @Delete(':id/certification-records/:recordId')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
+  removeCertificationRecord(@Param('recordId') recordId: string) {
+    return this.schoolService.removeCertificationRecord(recordId);
+  }
+
   /** Enrolled children (student profiles), not login users. */
   @Get(':id/students')
   @UseGuards(RolesGuard)

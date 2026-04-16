@@ -20,4 +20,28 @@ export class InspectionTypeService {
   async findOne(id: string) {
     return this.repository.findOne({ where: { id } });
   }
+
+  async create(schoolId: string, body: any) {
+    const row = this.repository.create({
+      schoolId,
+      name: body.name?.trim(),
+      description: body.description ?? null,
+      frequency: body.frequency ?? null,
+    } as any);
+    return this.repository.save(row);
+  }
+
+  async update(id: string, body: any) {
+    const row = await this.repository.findOne({ where: { id } });
+    if (!row) return null;
+    if (body.name !== undefined) row.name = String(body.name).trim();
+    if (body.description !== undefined) row.description = body.description ?? null;
+    if (body.frequency !== undefined) row.frequency = body.frequency ?? null;
+    return this.repository.save(row);
+  }
+
+  async remove(id: string) {
+    await this.repository.delete(id);
+    return { success: true };
+  }
 }

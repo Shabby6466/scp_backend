@@ -127,6 +127,20 @@ export class DocumentTypeController {
     return this.documentTypeService.update(id, dto, user);
   }
 
+  @Delete(':id')
+  remove(
+    @Param('id') id: string,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.documentTypeService.remove(id, user);
+  }
+
   @Get(':id')
   findOne(
     @Param('id') id: string,
