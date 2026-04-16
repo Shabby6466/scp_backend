@@ -7,7 +7,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { UserRole } from '../common/enums/database.enum';
 import { StudentParent } from '../../entities/student-parent.entity';
 import { User } from '../../entities/user.entity';
@@ -17,6 +17,7 @@ import { isSchoolDirector } from '../auth/school-scope.util';
 import { UserService } from '../user/user.service';
 import type { RegisterChildDto } from './dto/register-child.dto';
 import { UpdateStudentProfileDto } from './dto/update-student-profile.dto';
+import { StudentProfileService } from './student-profile.service';
 
 type JwtUser = {
   id: string;
@@ -37,6 +38,7 @@ export class StudentParentService {
     @InjectRepository(Branch)
     private readonly branchRepository: Repository<Branch>,
     private readonly dataSource: DataSource,
+    private readonly studentProfileService: StudentProfileService,
   ) { }
 
   private normalizeOptionalUuidInput(
@@ -133,6 +135,73 @@ export class StudentParentService {
     }
 
     throw new ForbiddenException('Cannot access these records');
+  }
+
+  private async assertBatchCanAccessStudentProfiles(
+    profiles: StudentProfile[],
+    user: JwtUser,
+  ) {
+    if (user.role === UserRole.ADMIN) {
+      return;
+    }
+
+    if (isSchoolDirector(user)) {
+      for (const p of profiles) {
+        if (this.profileSchoolId(p) !== user.schoolId) {
+          throw new ForbiddenException(
+            'Some student profiles are outside your school scope',
+          );
+        }
+      }
+      return;
+    }
+
+    if (user.role === UserRole.BRANCH_DIRECTOR) {
+      if (!user.branchId) {
+        throw new ForbiddenException('Your account is not linked to a branch');
+      }
+      for (const p of profiles) {
+        if (p.branchId !== user.branchId) {
+          throw new ForbiddenException(
+            'Some student profiles are outside your branch scope',
+          );
+        }
+      }
+      return;
+    }
+
+    if (user.role === UserRole.TEACHER) {
+      if (!user.branchId) {
+        throw new ForbiddenException('Your account is not linked to a branch');
+      }
+      for (const p of profiles) {
+        if (p.branchId !== user.branchId) {
+          throw new ForbiddenException(
+            'Some student profiles are outside your branch scope',
+          );
+        }
+      }
+      return;
+    }
+
+    if (user.role === UserRole.PARENT) {
+      const ids = profiles.map((p) => p.id);
+      const links = await this.studentParentRepository.find({
+        where: { parentId: user.id, studentProfileId: In(ids) },
+        select: { studentProfileId: true },
+      });
+      const allowed = new Set(links.map((l) => l.studentProfileId));
+      for (const p of profiles) {
+        if (!allowed.has(p.id)) {
+          throw new ForbiddenException(
+            'Cannot access some of the requested student profiles',
+          );
+        }
+      }
+      return;
+    }
+
+    throw new ForbiddenException('Cannot access student profiles');
   }
 
   private profileSchoolId(profile: StudentProfile) {
@@ -349,6 +418,66 @@ export class StudentParentService {
     return this.loadStudentProfile(profileId);
   }
 
+  /**
+   * School-wide + branch-specific STUDENT document types for this profile
+   * (same merge as document summary / compliance).
+   */
+  async getRequiredDocumentTypesForStudentProfile(
+    studentProfileId: string,
+    user: JwtUser,
+  ) {
+    await this.assertCanAccessStudentProfileView(studentProfileId, user);
+    const profile = await this.loadStudentProfile(studentProfileId);
+    const schoolId = this.profileSchoolId(profile);
+    return this.studentProfileService.findRequiredDocTypesForStudentProfile(
+      schoolId,
+      profile.branchId ?? null,
+    );
+  }
+
+  /**
+   * Merged school-wide + branch STUDENT requirement counts for many profiles (one batched load
+   * of document types per school).
+   */
+  async getRequiredDocumentTypeCountsForProfiles(
+    profileIds: string[],
+    user: JwtUser,
+  ): Promise<{ counts: Record<string, number> }> {
+    const MAX = 5000;
+    if (profileIds.length > MAX) {
+      throw new BadRequestException(
+        `At most ${MAX} student profile ids per request`,
+      );
+    }
+    const unique = [
+      ...new Set(profileIds.map((x) => String(x).trim()).filter(Boolean)),
+    ];
+    if (unique.length === 0) {
+      return { counts: {} };
+    }
+
+    const profiles = await this.studentProfileRepository.find({
+      where: { id: In(unique) },
+      relations: ['branch', 'school'],
+    });
+    if (profiles.length !== unique.length) {
+      throw new BadRequestException('Some student profiles were not found');
+    }
+
+    await this.assertBatchCanAccessStudentProfiles(profiles, user);
+
+    const rows = profiles.map((p) => ({
+      id: p.id,
+      schoolId: this.profileSchoolId(p),
+      branchId: p.branchId ?? null,
+    }));
+
+    const map = await this.studentProfileService.countRequiredDocTypesByProfileRows(
+      rows,
+    );
+    return { counts: Object.fromEntries(map) };
+  }
+
   async updateStudentProfile(
     profileId: string,
     dto: UpdateStudentProfileDto,
@@ -414,7 +543,17 @@ export class StudentParentService {
           : String(grade).trim();
     }
 
-    if (schoolIn !== undefined || branchIn !== undefined) {
+    const scopeRequested = schoolIn !== undefined || branchIn !== undefined;
+    const schoolUnchanged =
+      schoolIn === undefined ||
+      (schoolIn ?? null) === (profile.schoolId ?? null);
+    const branchUnchanged =
+      branchIn === undefined ||
+      (branchIn ?? null) === (profile.branchId ?? null);
+    /** Echoing current school/branch must not trip the elevated-role gate (e.g. clients that always send schoolId). */
+    const scopeIsNoOp = scopeRequested && schoolUnchanged && branchUnchanged;
+
+    if (scopeRequested && !scopeIsNoOp) {
       if (user.role !== UserRole.ADMIN && !isSchoolDirector(user)) {
         throw new ForbiddenException(
           'Only administrators or school directors can change school or branch',

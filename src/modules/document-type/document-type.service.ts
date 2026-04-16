@@ -16,6 +16,10 @@ import { MailerService } from '../mailer/mailer.service';
 import { UserService } from '../user/user.service';
 import { ComplianceCategoryService } from '../compliance-category/compliance-category.service';
 import { BranchService } from '../branch/branch.service';
+import {
+  assertCanAssignUserToDocType,
+  canDefineTargetRoleForDocType,
+} from './document-type.permissions';
 
 type CurrentUser = {
   id: string;
@@ -37,25 +41,6 @@ export class DocumentTypeService {
     private readonly branchService: BranchService,
     private readonly mailer: MailerService,
   ) { }
-
-  private canAssignRole(actorRole: UserRole, targetRole: UserRole): boolean {
-    if (targetRole === UserRole.ADMIN || targetRole === UserRole.DIRECTOR) {
-      return false;
-    }
-    if (actorRole === UserRole.ADMIN) {
-      return true;
-    }
-    if (actorRole === UserRole.DIRECTOR) {
-      return (
-        targetRole === UserRole.BRANCH_DIRECTOR ||
-        targetRole === UserRole.TEACHER
-      );
-    }
-    if (actorRole === UserRole.BRANCH_DIRECTOR) {
-      return targetRole === UserRole.TEACHER;
-    }
-    return false;
-  }
 
   private assertActorCanAccessDocType(
     actor: CurrentUser,
@@ -109,27 +94,10 @@ export class DocumentTypeService {
     throw new ForbiddenException('Cannot access this document type');
   }
 
-  private ensureScope(
-    actor: CurrentUser,
-    target: { schoolId: string | null; branchId: string | null },
-  ) {
-    if (actor.role === UserRole.ADMIN) return;
-    if (!actor.schoolId) {
-      throw new ForbiddenException('Your account is not linked to a school');
-    }
-    if (target.schoolId !== actor.schoolId) {
-      throw new ForbiddenException('Target user is outside your school scope');
-    }
-    if (
-      actor.role === UserRole.BRANCH_DIRECTOR &&
-      actor.branchId !== target.branchId
-    ) {
-      throw new ForbiddenException('Target user is outside your branch scope');
-    }
-  }
-
   async create(dto: CreateDocumentTypeDto, user: CurrentUser) {
-    if (!this.canAssignRole(user.role, dto.targetRole as UserRole)) {
+    if (
+      !canDefineTargetRoleForDocType(user.role, dto.targetRole as UserRole)
+    ) {
       throw new ForbiddenException('You cannot create doc types for this role');
     }
 
@@ -150,7 +118,6 @@ export class DocumentTypeService {
       }
     } else if (user.role === UserRole.DIRECTOR) {
       schoolId = user.schoolId ?? null;
-      branchId = null;
       if (!schoolId) {
         throw new ForbiddenException('Your account is not linked to a school');
       }
@@ -158,7 +125,13 @@ export class DocumentTypeService {
         throw new ForbiddenException('Cannot create document type outside your school');
       }
       if (dto.branchId) {
-        throw new ForbiddenException('Directors create school-wide document types only');
+        const b = await this.branchService.findOneById(dto.branchId);
+        if (!b || b.schoolId !== schoolId) {
+          throw new BadRequestException('Branch does not belong to your school');
+        }
+        branchId = dto.branchId;
+      } else {
+        branchId = null;
       }
     } else if (user.role === UserRole.BRANCH_DIRECTOR) {
       schoolId = user.schoolId!;
@@ -185,6 +158,7 @@ export class DocumentTypeService {
     const docType = this.documentTypeRepository.create({
       name: dto.name.trim(),
       targetRole: dto.targetRole as UserRole,
+      isMandatory: dto.isMandatory ?? false,
       renewalPeriod: (dto.renewalPeriod as RenewalPeriod) ?? RenewalPeriod.NONE,
       schoolId,
       branchId,
@@ -205,7 +179,9 @@ export class DocumentTypeService {
     this.assertActorCanAccessDocType(user, existing);
 
     if (dto.targetRole !== undefined) {
-      if (!this.canAssignRole(user.role, dto.targetRole as UserRole)) {
+      if (
+        !canDefineTargetRoleForDocType(user.role, dto.targetRole as UserRole)
+      ) {
         throw new ForbiddenException('You cannot set this target role');
       }
       existing.targetRole = dto.targetRole as UserRole;
@@ -261,22 +237,10 @@ export class DocumentTypeService {
     }
 
     for (const target of targets) {
-      if (!this.canAssignRole(user.role, target.role)) {
-        throw new ForbiddenException(
-          `Cannot assign documents to role ${target.role}`,
-        );
-      }
-      this.ensureScope(user, target);
-      if (docType.targetRole && target.role !== docType.targetRole) {
-        throw new BadRequestException(
-          'Target user role does not match document type target role',
-        );
-      }
-      if (docType.branchId && target.branchId !== docType.branchId) {
-        throw new BadRequestException(
-          'This document type is limited to a specific branch; pick users from that branch.',
-        );
-      }
+      assertCanAssignUserToDocType(user, target, {
+        targetRole: docType.targetRole,
+        branchId: docType.branchId,
+      });
     }
 
     // Append only new ones
@@ -313,12 +277,10 @@ export class DocumentTypeService {
 
     const target = await this.userService.findOneInternal(userId);
     if (!target) throw new NotFoundException('User not found');
-    if (!this.canAssignRole(user.role, target.role)) {
-      throw new ForbiddenException(
-        `Cannot unassign documents from role ${target.role}`,
-      );
-    }
-    this.ensureScope(user, target);
+    assertCanAssignUserToDocType(user, target, {
+      targetRole: docType.targetRole,
+      branchId: docType.branchId,
+    });
 
     if (docType.requiredUsers) {
       docType.requiredUsers = docType.requiredUsers.filter(u => u.id !== userId);
@@ -343,7 +305,12 @@ export class DocumentTypeService {
 
     let requiredUsers = docType.requiredUsers || [];
     if (user.role === UserRole.BRANCH_DIRECTOR && user.branchId) {
-      requiredUsers = requiredUsers.filter((u) => u.branchId === user.branchId);
+      requiredUsers = requiredUsers.filter(
+        (u) =>
+          u.branchId === user.branchId ||
+          (u.role === UserRole.PARENT &&
+            (u.branchId == null || u.branchId === user.branchId)),
+      );
     }
 
     return { ...docType, requiredUsers };
