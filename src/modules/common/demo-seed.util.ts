@@ -18,6 +18,7 @@ import { CertificationRecord } from '../../entities/certification-record.entity'
 import { Invitation } from '../../entities/invitation.entity';
 import {
   EmploymentStatus,
+  InspectionCategory,
   InvitationStatus,
   RenewalPeriod,
   UserRole,
@@ -597,6 +598,7 @@ export async function seedDemoData(
     name: 'DOH Licensing Visit',
     description: 'Department of Health inspection checklist',
     frequency: 'Annual',
+    category: InspectionCategory.DOH,
   });
   await r.inspectionTypes.save(inspDoh);
 
@@ -605,6 +607,7 @@ export async function seedDemoData(
     name: 'Fire & Life Safety',
     description: 'Fire drill logs, extinguishers, egress',
     frequency: 'Quarterly',
+    category: InspectionCategory.FACILITY_SAFETY,
   });
   await r.inspectionTypes.save(inspFacility);
 

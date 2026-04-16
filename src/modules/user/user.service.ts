@@ -389,7 +389,7 @@ export class UserService {
     return this.paginate(this.userRepository, {
       where,
       order: { role: 'DESC', email: 'ASC' },
-      relations: ['branch'],
+      relations: ['branch', 'teacherProfile'],
       select: {
         id: true,
         email: true,
@@ -397,10 +397,21 @@ export class UserService {
         role: true,
         schoolId: true,
         branchId: true,
+        phone: true,
         createdAt: true,
         staffPosition: true,
         staffClearanceActive: true,
         branch: { id: true, name: true, schoolId: true },
+        teacherProfile: {
+          hireDate: true,
+          employmentStatus: true,
+          certificationType: true,
+          certificationExpiry: true,
+          backgroundCheckDate: true,
+          backgroundCheckExpiry: true,
+          notes: true,
+          phone: true,
+        },
       },
     }, dto);
   }
@@ -445,7 +456,7 @@ export class UserService {
       {
         where,
         order: { role: 'DESC', email: 'ASC' },
-        relations: ['school', 'branch'],
+        relations: ['school', 'branch', 'teacherProfile'],
         select: {
           id: true,
           email: true,
@@ -458,6 +469,16 @@ export class UserService {
           staffClearanceActive: true,
           school: { id: true, name: true },
           branch: { id: true, name: true, schoolId: true },
+          teacherProfile: {
+            hireDate: true,
+            employmentStatus: true,
+            certificationType: true,
+            certificationExpiry: true,
+            backgroundCheckDate: true,
+            backgroundCheckExpiry: true,
+            notes: true,
+            phone: true,
+          },
         },
       },
       dto,

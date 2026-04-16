@@ -41,6 +41,12 @@ export enum InvitationStatus {
   REVOKED = 'REVOKED',
 }
 
+/** Inspection program grouping (matches Postgres `inspection_category` where used). */
+export enum InspectionCategory {
+  DOH = 'doh',
+  FACILITY_SAFETY = 'facility_safety',
+}
+
 /**
  * Shared PostgreSQL enum type names for TypeORM + synchronize.
  * Every column using the same TS enum must reuse the same `enumName`, or
@@ -53,4 +59,5 @@ export const PgEnumName = {
   RenewalPeriod: 'renewal_period_enum',
   InvitationStatus: 'invitation_status_enum',
   EmploymentStatus: 'employment_status_enum',
+  InspectionCategory: 'inspection_category',
 } as const;
