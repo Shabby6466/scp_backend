@@ -406,6 +406,18 @@ export class DocumentTypeService {
     });
   }
 
+  /** Mandatory document types defined for this school (any branch), optional category filter. */
+  async findMandatoryInSchool(schoolId: string, categoryId?: string | null) {
+    const qb = this.documentTypeRepository
+      .createQueryBuilder('dt')
+      .where('dt.isMandatory = :m', { m: true })
+      .andWhere('dt.schoolId = :schoolId', { schoolId });
+    if (categoryId) {
+      qb.andWhere('dt.categoryId = :categoryId', { categoryId });
+    }
+    return qb.getMany();
+  }
+
   async findOneInternal(id: string) {
     return this.documentTypeRepository.findOne({ where: { id } });
   }

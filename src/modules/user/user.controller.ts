@@ -138,12 +138,18 @@ export class UserController {
 
   @Delete('users/:id')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR)
   deleteUser(
     @Param('id') id: string,
-    @CurrentUser() user: { id: string },
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
   ) {
-    return this.userService.remove(id, user.id);
+    return this.userService.remove(id, user);
   }
 
   @Post('schools/:schoolId/users')

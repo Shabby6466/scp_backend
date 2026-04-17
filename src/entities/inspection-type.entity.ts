@@ -1,6 +1,7 @@
 import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { School } from './school.entity';
+import { ComplianceCategory } from './compliance-category.entity';
 import {
   InspectionCategory,
   PgEnumName,
@@ -30,6 +31,18 @@ export class InspectionType extends BaseEntity {
     default: InspectionCategory.FACILITY_SAFETY,
   })
   category!: InspectionCategory;
+
+  /** UI / reporting bucket — aligns with ComplianceCategory presets (doh, facility-safety, …). */
+  @Column({ name: 'compliance_category_id', nullable: true, type: 'uuid' })
+  @Index()
+  complianceCategoryId!: string | null;
+
+  @ManyToOne(() => ComplianceCategory, (cat) => cat.inspectionTypes, {
+    onDelete: 'SET NULL',
+    nullable: true,
+  })
+  @JoinColumn({ name: 'compliance_category_id' })
+  complianceCategory!: ComplianceCategory | null;
 
   @ManyToOne(() => School, (school) => school.inspectionTypes, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'school_id' })

@@ -25,13 +25,23 @@ export class SchoolController {
   @Post()
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
-  create(@Body() dto: CreateSchoolDto) {
-    return this.schoolService.create(dto);
+  create(
+    @Body() dto: CreateSchoolDto,
+    @CurrentUser() user: { id: string; role: UserRole; schoolId: string | null },
+  ) {
+    return this.schoolService.create(dto, user.id);
   }
 
   @Get()
   findAll(@CurrentUser() user: { role: UserRole; schoolId: string | null }) {
     return this.schoolService.findAll(user);
+  }
+
+  @Get('navigation-counts')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  getNavigationCounts() {
+    return this.schoolService.getPlatformNavigationCounts();
   }
 
   @Get(':id/dashboard-summary')
@@ -96,8 +106,12 @@ export class SchoolController {
   @Post(':id/inspection-types')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
-  createInspectionType(@Param('id') id: string, @Body() body: any) {
-    return this.schoolService.createInspectionType(id, body);
+  createInspectionType(
+    @Param('id') id: string,
+    @Body() body: any,
+    @CurrentUser() user: { id: string },
+  ) {
+    return this.schoolService.createInspectionType(id, body, user.id);
   }
 
   @Patch(':id/inspection-types/:inspectionTypeId')
@@ -106,8 +120,9 @@ export class SchoolController {
   updateInspectionType(
     @Param('inspectionTypeId') inspectionTypeId: string,
     @Body() body: any,
+    @CurrentUser() user: { id: string },
   ) {
-    return this.schoolService.updateInspectionType(inspectionTypeId, body);
+    return this.schoolService.updateInspectionType(inspectionTypeId, body, user.id);
   }
 
   @Delete(':id/inspection-types/:inspectionTypeId')

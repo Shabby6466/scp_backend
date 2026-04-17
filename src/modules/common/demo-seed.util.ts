@@ -23,6 +23,7 @@ import {
   RenewalPeriod,
   UserRole,
 } from './enums/database.enum';
+import { DEFAULT_COMPLIANCE_CATEGORY_PRESETS } from '../compliance-category/compliance-category.presets';
 
 export type DemoSeedLogger = Pick<Console, 'log' | 'warn'>;
 
@@ -450,27 +451,31 @@ export async function seedDemoData(
     }),
   );
 
-  const catHealth = r.complianceCategories.create({
-    name: 'Health & Medical',
-    slug: 'health-medical',
-    description: 'Immunizations, health forms, allergies',
-    icon: 'heart',
-    sortOrder: 0,
-    schoolId: school.id,
-    createdById: director.id,
+  for (const preset of DEFAULT_COMPLIANCE_CATEGORY_PRESETS) {
+    await r.complianceCategories.save(
+      r.complianceCategories.create({
+        name: preset.name,
+        slug: preset.slug,
+        description: preset.description,
+        icon: preset.icon,
+        sortOrder: preset.sortOrder,
+        schoolId: school.id,
+        createdById: director.id,
+      }),
+    );
+  }
+  const catDoh = await r.complianceCategories.findOneOrFail({
+    where: { schoolId: school.id, slug: 'doh' },
   });
-  await r.complianceCategories.save(catHealth);
-
-  const catOps = r.complianceCategories.create({
-    name: 'Operations',
-    slug: 'operations',
-    description: 'Handbooks, emergency contacts',
-    icon: 'clipboard',
-    sortOrder: 1,
-    schoolId: school.id,
-    createdById: director.id,
+  const catOverview = await r.complianceCategories.findOneOrFail({
+    where: { schoolId: school.id, slug: 'compliance-overview' },
   });
-  await r.complianceCategories.save(catOps);
+  const catFacility = await r.complianceCategories.findOneOrFail({
+    where: { schoolId: school.id, slug: 'facility-safety' },
+  });
+  const catCerts = await r.complianceCategories.findOneOrFail({
+    where: { schoolId: school.id, slug: 'certifications' },
+  });
 
   const dtTeacherCpr = r.documentTypes.create({
     name: 'CPR / First Aid',
@@ -481,7 +486,7 @@ export async function seedDemoData(
     schoolId: school.id,
     branchId: null,
     createdById: director.id,
-    categoryId: catHealth.id,
+    categoryId: catDoh.id,
   });
   await r.documentTypes.save(dtTeacherCpr);
 
@@ -494,7 +499,7 @@ export async function seedDemoData(
     schoolId: school.id,
     branchId: null,
     createdById: director.id,
-    categoryId: catHealth.id,
+    categoryId: catDoh.id,
   });
   await r.documentTypes.save(dtTeacherBg);
 
@@ -507,7 +512,7 @@ export async function seedDemoData(
     schoolId: school.id,
     branchId: null,
     createdById: director.id,
-    categoryId: catHealth.id,
+    categoryId: catDoh.id,
   });
   await r.documentTypes.save(dtStudentHealth);
 
@@ -520,7 +525,7 @@ export async function seedDemoData(
     schoolId: school.id,
     branchId: null,
     createdById: director.id,
-    categoryId: catOps.id,
+    categoryId: catOverview.id,
   });
   await r.documentTypes.save(dtParentHandbook);
 
@@ -599,6 +604,7 @@ export async function seedDemoData(
     description: 'Department of Health inspection checklist',
     frequency: 'Annual',
     category: InspectionCategory.DOH,
+    complianceCategoryId: catDoh.id,
   });
   await r.inspectionTypes.save(inspDoh);
 
@@ -608,6 +614,7 @@ export async function seedDemoData(
     description: 'Fire drill logs, extinguishers, egress',
     frequency: 'Quarterly',
     category: InspectionCategory.FACILITY_SAFETY,
+    complianceCategoryId: catFacility.id,
   });
   await r.inspectionTypes.save(inspFacility);
 
@@ -649,6 +656,7 @@ export async function seedDemoData(
     name: 'Facility Fire Safety Certificate',
     description: 'Building-wide fire inspection certificate',
     defaultValidityMonths: 12,
+    complianceCategoryId: catCerts.id,
   });
   await r.certificationTypes.save(certType);
 

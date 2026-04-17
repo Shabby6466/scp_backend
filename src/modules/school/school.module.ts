@@ -13,6 +13,7 @@ import { CertificationRecordService } from './certification-record.service';
 import { UserModule } from '../user/user.module';
 import { BranchModule } from '../branch/branch.module';
 import { StudentParentModule } from '../student-parent/student-parent.module';
+import { ComplianceCategoryModule } from '../compliance-category/compliance-category.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { StudentParentModule } from '../student-parent/student-parent.module';
     forwardRef(() => UserModule),
     forwardRef(() => BranchModule),
     forwardRef(() => StudentParentModule),
+    forwardRef(() => ComplianceCategoryModule),
   ],
   controllers: [SchoolController],
   providers: [

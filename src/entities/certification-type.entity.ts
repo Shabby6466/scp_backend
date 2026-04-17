@@ -2,6 +2,7 @@ import { Entity, Column, ManyToOne, JoinColumn, Index, OneToMany } from 'typeorm
 import { BaseEntity } from './base.entity';
 import { School } from './school.entity';
 import { CertificationRecord } from './certification-record.entity';
+import { ComplianceCategory } from './compliance-category.entity';
 
 @Entity('CertificationType')
 export class CertificationType extends BaseEntity {
@@ -19,6 +20,18 @@ export class CertificationType extends BaseEntity {
 
   @Column({ name: 'default_validity_months', nullable: true , type: 'int' })
   defaultValidityMonths!: number | null;
+
+  /** One of the school’s ComplianceCategory rows (preset slugs: certifications, doh, …). */
+  @Column({ name: 'compliance_category_id', nullable: true, type: 'uuid' })
+  @Index()
+  complianceCategoryId!: string | null;
+
+  @ManyToOne(() => ComplianceCategory, (cat) => cat.certificationTypes, {
+    onDelete: 'SET NULL',
+    nullable: true,
+  })
+  @JoinColumn({ name: 'compliance_category_id' })
+  complianceCategory!: ComplianceCategory | null;
 
   @ManyToOne('School', (school: any) => school.certificationTypes, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'school_id' })
