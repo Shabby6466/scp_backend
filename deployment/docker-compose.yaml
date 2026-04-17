@@ -41,6 +41,8 @@ services:
     build:
       context: ../../scp-web
       dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=http://76.13.177.120:4000/api
     container_name: scp_web
     depends_on:
       - scp-backend
