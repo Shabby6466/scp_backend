@@ -1,0 +1,47 @@
+services:
+  scp-db:
+    image: postgres:15-alpine
+    container_name: scp_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: scp_password_2024
+      POSTGRES_DB: school_compliance
+    volumes:
+      - scp_db_data:/var/lib/postgresql/data
+    ports:
+      - "5435:5432" # Unique port to avoid conflicts
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  scp-backend:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: scp_backend
+    depends_on:
+      scp-db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://postgres:scp_password_2024@scp-db:5432/school_compliance
+      - JWT_SECRET=prod_secret_keep_it_safe
+      - PORT=4000
+      - FRONTEND_URL=http://localhost:8091
+      - DB_SYNC=true
+    restart: always
+
+  scp-frontend:
+    build:
+      context: ../../scp-web
+      dockerfile: Dockerfile
+    container_name: scp_web
+    depends_on:
+      - scp-backend
+    ports:
+      - "8091:80"
+    restart: always
+
+volumes:
+  scp_db_data:
