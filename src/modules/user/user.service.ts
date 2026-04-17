@@ -1416,13 +1416,38 @@ export class UserService {
     return aqb.getMany();
   }
 
-  async remove(targetId: string, actorId: string) {
+  async remove(
+    targetId: string,
+    actor: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
     const user = await this.userRepository.findOne({ where: { id: targetId } });
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    user.deletedBy = actorId;
+    if (actor.role === UserRole.DIRECTOR) {
+      if (!actor.schoolId) {
+        throw new ForbiddenException('Your account is not linked to a school');
+      }
+      if (user.role !== UserRole.BRANCH_DIRECTOR) {
+        throw new ForbiddenException(
+          'You can only remove branch director accounts for your school',
+        );
+      }
+      const ok = await this.userBelongsToSchool(targetId, actor.schoolId);
+      if (!ok) {
+        throw new ForbiddenException('This user is not in your school');
+      }
+    } else if (actor.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Insufficient permissions');
+    }
+
+    user.deletedBy = actor.id;
     await this.userRepository.save(user);
 
     return this.userRepository.softDelete(targetId);

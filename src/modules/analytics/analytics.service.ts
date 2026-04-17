@@ -20,6 +20,7 @@ import { DocumentTypeService } from '../document-type/document-type.service';
 import { NEAR_EXPIRY_DAYS } from '../branch/branch-dashboard.service';
 import { StudentProfile } from '../../entities/student-profile.entity';
 import { StudentProfileService } from '../student-parent/student-profile.service';
+import { ComplianceCategory } from '../../entities/compliance-category.entity';
 
 export const ANALYTICS_NEAR_EXPIRY_DAYS = 30;
 
@@ -303,45 +304,136 @@ export class AnalyticsService {
     };
   }
 
-  async getComplianceSummary(user: CurrentUser) {
-    const scope = this.resolveScope(user);
-    const loc = scope.kind === 'school' ? { schoolId: scope.schoolId } : (scope.kind === 'branch' || scope.kind === 'teacher' ? { branchId: scope.branchId } : {});
+  private async resolveSchoolIdFromLoc(
+    loc: { schoolId?: string; branchId?: string },
+  ): Promise<string | null> {
+    if (loc.schoolId) return loc.schoolId;
+    if (loc.branchId) {
+      const br = await this.branchService.findOneById(loc.branchId);
+      return br?.schoolId ?? null;
+    }
+    return null;
+  }
 
-    // 1. Get counts of users by role + enrolled student profiles (no student login users)
+  /**
+   * School-scoped mandatory document compliance, optional category filter.
+   */
+  private async computeComplianceRollup(
+    loc: { schoolId?: string; branchId?: string },
+    categoryId?: string,
+  ) {
+    const schoolId = await this.resolveSchoolIdFromLoc(loc);
+    const now = new Date();
+    if (!schoolId) {
+      return {
+        overallScore: 100,
+        totalRequired: 0,
+        verifiedCount: 0,
+        pendingVerification: 0,
+        studentRate: 100,
+        teacherRate: 100,
+        totalStudents: 0,
+        totalTeachers: 0,
+        compliantStudents: 0,
+        compliantTeachers: 0,
+      };
+    }
+
+    let types = await this.documentTypeService.findMandatoryInSchool(schoolId, categoryId);
+    if (loc.branchId) {
+      types = types.filter((t) => !t.branchId || t.branchId === loc.branchId);
+    }
+
     const roleCounts = await this.userService.countByRoles(loc);
     const studentProfileCount = await this.studentProfileService.countInScope(loc);
-    const roleCountsWithStudents = {
-      ...roleCounts,
-      [UserRole.STUDENT]: studentProfileCount,
-    };
+    const teacherCount = roleCounts[UserRole.TEACHER] || 0;
 
-    // 2. Get mandatory document types
-    const docTypes = await this.documentTypeService.findMandatory();
+    const studentTypes = types.filter((t) => t.targetRole === UserRole.STUDENT);
+    const teacherTypes = types.filter((t) => t.targetRole === UserRole.TEACHER);
 
-    // 3. Calculate total required
-    let totalRequired = 0;
-    docTypes.forEach((dt) => {
-      totalRequired +=
-        roleCountsWithStudents[dt.targetRole as UserRole] || 0;
-    });
+    const totalStudentRequired = studentTypes.length * studentProfileCount;
+    const totalTeacherRequired = teacherTypes.length * teacherCount;
+    const totalRequired = totalStudentRequired + totalTeacherRequired;
 
-    // 4. Get active verified documents count
-    const verifiedCount = await this.documentService.countVerifiedInScope(loc, new Date());
+    const studentTypeIds = studentTypes.map((t) => t.id);
+    const teacherTypeIds = teacherTypes.map((t) => t.id);
+    const allTypeIds = types.map((t) => t.id);
 
-    // 5. Get pending verification documents count
-    const pendingVerification = await this.documentService.countPendingInScope(loc);
+    const verifiedStudentDocs =
+      studentTypeIds.length === 0
+        ? 0
+        : await this.documentService.countVerifiedInScopeForDocumentTypes(
+          loc,
+          now,
+          studentTypeIds,
+        );
+    const verifiedTeacherDocs =
+      teacherTypeIds.length === 0
+        ? 0
+        : await this.documentService.countVerifiedInScopeForDocumentTypes(
+          loc,
+          now,
+          teacherTypeIds,
+        );
 
-    // 6. Calculate Score
-    const score =
+    const verifiedCount =
+      allTypeIds.length === 0
+        ? 0
+        : await this.documentService.countVerifiedInScopeForDocumentTypes(loc, now, allTypeIds);
+
+    const pendingVerification =
+      allTypeIds.length === 0
+        ? 0
+        : await this.documentService.countPendingInScopeForDocumentTypes(loc, allTypeIds);
+
+    const studentRate =
+      totalStudentRequired > 0
+        ? Math.min(100, Math.round((verifiedStudentDocs / totalStudentRequired) * 100))
+        : 100;
+    const teacherRate =
+      totalTeacherRequired > 0
+        ? Math.min(100, Math.round((verifiedTeacherDocs / totalTeacherRequired) * 100))
+        : 100;
+    const overallScore =
       totalRequired > 0
-        ? Math.round((verifiedCount / totalRequired) * 100)
+        ? Math.min(100, Math.round((verifiedCount / totalRequired) * 100))
         : 100;
 
     return {
-      score,
+      overallScore,
       totalRequired,
       verifiedCount,
       pendingVerification,
+      studentRate,
+      teacherRate,
+      totalStudents: studentProfileCount,
+      totalTeachers: teacherCount,
+      compliantStudents: Math.min(
+        studentProfileCount,
+        Math.round((studentRate / 100) * studentProfileCount),
+      ),
+      compliantTeachers: Math.min(
+        teacherCount,
+        Math.round((teacherRate / 100) * teacherCount),
+      ),
+    };
+  }
+
+  async getComplianceSummary(user: CurrentUser) {
+    const scope = this.resolveScope(user);
+    if (scope.kind === 'global') {
+      return { score: 100, totalRequired: 0, verifiedCount: 0, pendingVerification: 0 };
+    }
+    const loc =
+      scope.kind === 'school'
+        ? { schoolId: scope.schoolId }
+        : { branchId: scope.branchId };
+    const r = await this.computeComplianceRollup(loc, undefined);
+    return {
+      score: r.overallScore,
+      totalRequired: r.totalRequired,
+      verifiedCount: r.verifiedCount,
+      pendingVerification: r.pendingVerification,
     };
   }
 
@@ -406,20 +498,24 @@ export class AnalyticsService {
     user: CurrentUser,
     schoolId?: string,
     branchId?: string,
+    categorySlug?: string,
   ) {
     const s = schoolId?.trim() || undefined;
     const b = branchId?.trim() || undefined;
     const loc = this.assertSchoolScope(user, s, b);
-    const effectiveUser: CurrentUser =
-      user.role === UserRole.ADMIN && s && !b
-        ? {
-          ...user,
-          role: UserRole.DIRECTOR,
-          schoolId: s,
-          branchId: null,
-        }
-        : user;
-    const summary = await this.getComplianceSummary(effectiveUser);
+    const slug = categorySlug?.trim().toLowerCase() || undefined;
+
+    let categoryId: string | undefined;
+    const schoolKey = 'schoolId' in loc ? loc.schoolId : undefined;
+    if (slug && schoolKey) {
+      const catRepo = this.dataSource.getRepository(ComplianceCategory);
+      const cat = await catRepo.findOne({
+        where: { schoolId: schoolKey, slug },
+      });
+      categoryId = cat?.id;
+    }
+
+    const rollup = await this.computeComplianceRollup(loc, categoryId);
 
     const now = new Date();
     const nearEnd = new Date(now);
@@ -428,20 +524,23 @@ export class AnalyticsService {
     const expired = await this.documentService.countExpiredInScope(loc, now);
     const nearExpiry = await this.documentService.countNearExpiryInScope(loc, now, nearEnd);
 
-    const rate = summary.score;
     return {
-      studentComplianceRate: rate,
-      teacherComplianceRate: rate,
-      student_compliance_rate: rate,
-      teacher_compliance_rate: rate,
+      studentComplianceRate: rollup.studentRate,
+      teacherComplianceRate: rollup.teacherRate,
+      student_compliance_rate: rollup.studentRate,
+      teacher_compliance_rate: rollup.teacherRate,
+      total_students: rollup.totalStudents,
+      total_teachers: rollup.totalTeachers,
+      compliant_students: rollup.compliantStudents,
+      compliant_teachers: rollup.compliantTeachers,
       totalExpired: expired,
       total_expired: expired,
       totalExpiringSoon: nearExpiry,
       total_expiring_soon: nearExpiry,
-      score: summary.score,
-      totalRequired: summary.totalRequired,
-      verifiedCount: summary.verifiedCount,
-      pendingVerification: summary.pendingVerification,
+      score: rollup.overallScore,
+      totalRequired: rollup.totalRequired,
+      verifiedCount: rollup.verifiedCount,
+      pendingVerification: rollup.pendingVerification,
     };
   }
 

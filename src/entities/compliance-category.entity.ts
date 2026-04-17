@@ -55,4 +55,12 @@ export class ComplianceCategory extends BaseEntity {
 
   @OneToMany(() => DocumentType, (type) => type.category)
   documentTypes!: DocumentType[];
+
+  /** School-scoped certification templates — string names avoid circular imports with CertificationType. */
+  @OneToMany('CertificationType', 'complianceCategory')
+  certificationTypes!: import('./certification-type.entity').CertificationType[];
+
+  /** Recurring inspection programs — string names avoid circular imports with InspectionType. */
+  @OneToMany('InspectionType', 'complianceCategory')
+  inspectionTypes!: import('./inspection-type.entity').InspectionType[];
 }

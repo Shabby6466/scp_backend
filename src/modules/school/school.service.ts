@@ -6,10 +6,12 @@ import {
   Inject,
   forwardRef,
 } from '@nestjs/common';
+import { ComplianceCategoryService } from '../compliance-category/compliance-category.service';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Brackets, Repository, DataSource } from 'typeorm';
 import { School } from '../../entities/school.entity';
 import { User } from '../../entities/user.entity';
+import { Branch } from '../../entities/branch.entity';
 import { UserRole } from '../common/enums/database.enum';
 import { CreateSchoolDto } from './dto/create-school.dto';
 import { UpdateSchoolDto } from './dto/update-school.dto';
@@ -44,10 +46,12 @@ export class SchoolService {
     private readonly dataSource: DataSource,
     @Inject(forwardRef(() => StudentProfileService))
     private readonly studentProfileService: StudentProfileService,
+    @Inject(forwardRef(() => ComplianceCategoryService))
+    private readonly complianceCategoryService: ComplianceCategoryService,
   ) { }
 
-  async create(dto: CreateSchoolDto) {
-    return this.dataSource.transaction(async (manager) => {
+  async create(dto: CreateSchoolDto, actorUserId: string) {
+    const created = await this.dataSource.transaction(async (manager) => {
       const isApproved = dto.isApproved ?? dto.is_approved ?? false;
       const approvedAtRaw = dto.approvedAt ?? dto.approved_at ?? null;
       const approvedAt = approvedAtRaw ? new Date(approvedAtRaw) : null;
@@ -109,6 +113,13 @@ export class SchoolService {
         },
       };
     });
+
+    const schoolId = (created as School).id;
+    await this.complianceCategoryService.ensureDefaultCategoriesForSchool(
+      schoolId,
+      actorUserId,
+    );
+    return created;
   }
 
   async findAll(user: { role: UserRole; schoolId: string | null }) {
@@ -351,6 +362,24 @@ export class SchoolService {
 
     const parentCount = await this.userService.countParentsInSchool(id);
 
+    const userRepo = this.dataSource.getRepository(User);
+    const branchCount = branches.length;
+    const directorCount = await userRepo.count({
+      where: { schoolId: id, role: UserRole.DIRECTOR },
+    });
+    const branchDirectorCount = await userRepo
+      .createQueryBuilder('u')
+      .where('u.role = :role', { role: UserRole.BRANCH_DIRECTOR })
+      .andWhere(
+        new Brackets((w) => {
+          w.where('u.school_id = :sid', { sid: id }).orWhere(
+            'EXISTS (SELECT 1 FROM "Branch" b WHERE b.id = u.branch_id AND b.school_id = :sid)',
+            { sid: id },
+          );
+        }),
+      )
+      .getCount();
+
     return {
       name: school.name,
       stats: {
@@ -359,7 +388,44 @@ export class SchoolService {
         studentCount,
         teacherCount,
         parentCount,
+        branchCount,
+        directorCount,
+        branchDirectorCount,
       },
+    };
+  }
+
+  /** Platform-wide counts for admin sidebar badges. */
+  async getPlatformNavigationCounts() {
+    const userRepo = this.dataSource.getRepository(User);
+    const branchRepo = this.dataSource.getRepository(Branch);
+
+    const [
+      schoolCount,
+      branchCount,
+      studentCount,
+      teacherCount,
+      parentCount,
+      directorCount,
+      branchDirectorCount,
+    ] = await Promise.all([
+      this.schoolRepository.count(),
+      branchRepo.count(),
+      this.studentProfileService.countInScope({}),
+      userRepo.count({ where: { role: UserRole.TEACHER } }),
+      userRepo.count({ where: { role: UserRole.PARENT } }),
+      userRepo.count({ where: { role: UserRole.DIRECTOR } }),
+      userRepo.count({ where: { role: UserRole.BRANCH_DIRECTOR } }),
+    ]);
+
+    return {
+      schoolCount,
+      branchCount,
+      studentCount,
+      teacherCount,
+      parentCount,
+      directorCount,
+      branchDirectorCount,
     };
   }
 
@@ -398,12 +464,12 @@ export class SchoolService {
     return this.schoolRepository.save(school);
   }
 
-  async createInspectionType(schoolId: string, body: any) {
-    return this.inspectionTypeService.create(schoolId, body);
+  async createInspectionType(schoolId: string, body: any, actorUserId?: string) {
+    return this.inspectionTypeService.create(schoolId, body, actorUserId);
   }
 
-  async updateInspectionType(id: string, body: any) {
-    return this.inspectionTypeService.update(id, body);
+  async updateInspectionType(id: string, body: any, actorUserId?: string) {
+    return this.inspectionTypeService.update(id, body, actorUserId);
   }
 
   async removeInspectionType(id: string) {

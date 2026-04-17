@@ -93,6 +93,7 @@ export class AnalyticsController {
   getComplianceStats(
     @Query('schoolId') schoolId: string | undefined,
     @Query('branchId') branchId: string | undefined,
+    @Query('categorySlug') categorySlug: string | undefined,
     @CurrentUser()
     user: {
       id: string;
@@ -101,7 +102,7 @@ export class AnalyticsController {
       branchId: string | null;
     },
   ) {
-    return this.analytics.getComplianceStats(user, schoolId, branchId);
+    return this.analytics.getComplianceStats(user, schoolId, branchId, categorySlug);
   }
 
   @Get('documents/expiring')

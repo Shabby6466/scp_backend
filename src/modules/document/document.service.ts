@@ -913,6 +913,80 @@ export class DocumentService {
     return qb.getCount();
   }
 
+  async countVerifiedInScopeForDocumentTypes(
+    scope: { schoolId?: string; branchId?: string },
+    now: Date,
+    documentTypeIds: string[],
+  ): Promise<number> {
+    if (!documentTypeIds.length) return 0;
+    const qb = this.documentRepository
+      .createQueryBuilder('d')
+      .leftJoin('d.ownerUser', 'owner')
+      .leftJoin('d.studentProfile', 'sp')
+      .leftJoin('d.documentType', 'dt')
+      .leftJoin('owner.branch', 'ob')
+      .leftJoin('sp.branch', 'sb')
+      .where('d.verifiedAt IS NOT NULL')
+      .andWhere('(d.expiresAt IS NULL OR d.expiresAt > :now)', { now })
+      .andWhere('dt.id IN (:...ids)', { ids: documentTypeIds });
+
+    if (scope.branchId) {
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('owner.branchId = :branchId', {
+            branchId: scope.branchId,
+          }).orWhere('sp.branchId = :branchId', { branchId: scope.branchId });
+        }),
+      );
+    } else if (scope.schoolId) {
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('ob.schoolId = :schoolId', { schoolId: scope.schoolId }).orWhere(
+            'sb.schoolId = :schoolId',
+            { schoolId: scope.schoolId },
+          );
+        }),
+      );
+    }
+    return qb.getCount();
+  }
+
+  async countPendingInScopeForDocumentTypes(
+    scope: { schoolId?: string; branchId?: string },
+    documentTypeIds: string[],
+  ): Promise<number> {
+    if (!documentTypeIds.length) return 0;
+    const qb = this.documentRepository
+      .createQueryBuilder('d')
+      .leftJoin('d.ownerUser', 'owner')
+      .leftJoin('d.studentProfile', 'sp')
+      .leftJoin('d.documentType', 'dt')
+      .leftJoin('owner.branch', 'ob')
+      .leftJoin('sp.branch', 'sb')
+      .where('d.verifiedAt IS NULL')
+      .andWhere('dt.id IN (:...ids)', { ids: documentTypeIds });
+
+    if (scope.branchId) {
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('owner.branchId = :branchId', {
+            branchId: scope.branchId,
+          }).orWhere('sp.branchId = :branchId', { branchId: scope.branchId });
+        }),
+      );
+    } else if (scope.schoolId) {
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('ob.schoolId = :schoolId', { schoolId: scope.schoolId }).orWhere(
+            'sb.schoolId = :schoolId',
+            { schoolId: scope.schoolId },
+          );
+        }),
+      );
+    }
+    return qb.getCount();
+  }
+
   async countInSchool(schoolId: string) {
     return this.documentRepository
       .createQueryBuilder('d')

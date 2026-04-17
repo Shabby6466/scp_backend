@@ -54,8 +54,30 @@ export class BranchService {
       let branch = manager.create(Branch, {
         name: dto.name.trim(),
         schoolId,
+        address: dto.address ?? null,
+        city: dto.city ?? null,
+        state: dto.state ?? null,
+        zipCode: dto.zipCode ?? null,
+        phone: dto.phone ?? null,
+        email: dto.email ?? null,
+        minAge: dto.minAge ?? null,
+        maxAge: dto.maxAge ?? null,
+        totalCapacity: dto.totalCapacity ?? null,
+        isPrimary: dto.isPrimary ?? false,
+        notes: dto.notes ?? null,
+        isActive: true,
       });
       branch = await manager.save(Branch, branch);
+
+      if (branch.isPrimary) {
+        await manager
+          .createQueryBuilder()
+          .update(Branch)
+          .set({ isPrimary: false })
+          .where('school_id = :sid', { sid: schoolId })
+          .andWhere('id != :id', { id: branch.id })
+          .execute();
+      }
 
       await this.syncBranchDirectorForBranch(
         manager,
@@ -63,7 +85,7 @@ export class BranchService {
         dto.branchDirectorUserId,
       );
 
-      return branch;
+      return manager.findOneOrFail(Branch, { where: { id: branch.id } });
     });
   }
 
@@ -152,7 +174,22 @@ export class BranchService {
       );
     }
 
-    if (dto.name === undefined && dto.branchDirectorUserId === undefined) {
+    const patchKeys: (keyof UpdateBranchDto)[] = [
+      'name',
+      'address',
+      'city',
+      'state',
+      'zipCode',
+      'phone',
+      'email',
+      'minAge',
+      'maxAge',
+      'totalCapacity',
+      'isPrimary',
+      'notes',
+      'branchDirectorUserId',
+    ];
+    if (!patchKeys.some((k) => dto[k] !== undefined)) {
       throw new BadRequestException('Provide at least one field to update');
     }
 
@@ -163,9 +200,53 @@ export class BranchService {
         dto.branchDirectorUserId,
       );
 
-      if (dto.name != null) {
+      if (dto.name !== undefined) {
         branch.name = dto.name.trim();
-        await manager.save(Branch, branch);
+      }
+      if (dto.address !== undefined) {
+        branch.address = dto.address ?? null;
+      }
+      if (dto.city !== undefined) {
+        branch.city = dto.city ?? null;
+      }
+      if (dto.state !== undefined) {
+        branch.state = dto.state ?? null;
+      }
+      if (dto.zipCode !== undefined) {
+        branch.zipCode = dto.zipCode ?? null;
+      }
+      if (dto.phone !== undefined) {
+        branch.phone = dto.phone ?? null;
+      }
+      if (dto.email !== undefined) {
+        branch.email = dto.email ?? null;
+      }
+      if (dto.minAge !== undefined) {
+        branch.minAge = dto.minAge ?? null;
+      }
+      if (dto.maxAge !== undefined) {
+        branch.maxAge = dto.maxAge ?? null;
+      }
+      if (dto.totalCapacity !== undefined) {
+        branch.totalCapacity = dto.totalCapacity ?? null;
+      }
+      if (dto.notes !== undefined) {
+        branch.notes = dto.notes ?? null;
+      }
+      if (dto.isPrimary !== undefined) {
+        branch.isPrimary = dto.isPrimary;
+      }
+
+      await manager.save(Branch, branch);
+
+      if (branch.isPrimary) {
+        await manager
+          .createQueryBuilder()
+          .update(Branch)
+          .set({ isPrimary: false })
+          .where('school_id = :sid', { sid: branch.schoolId })
+          .andWhere('id != :id', { id: branch.id })
+          .execute();
       }
 
       const result = await manager.findOne(Branch, {
