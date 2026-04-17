@@ -15,9 +15,19 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
+# Detect Docker Compose command
+if docker compose version > /dev/null 2>&1; then
+    DOCKER_COMPOSE="docker compose"
+elif docker-compose version > /dev/null 2>&1; then
+    DOCKER_COMPOSE="docker-compose"
+else
+    echo "❌ Error: Neither 'docker compose' nor 'docker-compose' found. Please install Docker Compose."
+    exit 1
+fi
+
 # Build and start services
-echo "📦 Building and starting containers..."
-docker-compose -p $PROJECT_NAME -f $DOCKER_COMPOSE_FILE up --build -d
+echo "📦 Building and starting containers using $DOCKER_COMPOSE..."
+$DOCKER_COMPOSE -p $PROJECT_NAME -f $DOCKER_COMPOSE_FILE up --build -d
 
 # Wait for backend to be ready
 echo "⏳ Waiting for backend to initialize..."
