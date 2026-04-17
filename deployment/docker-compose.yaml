@@ -24,11 +24,14 @@ services:
     depends_on:
       scp-db:
         condition: service_healthy
+    ports:
+      - "4000:4000"
     environment:
       - DATABASE_URL=postgresql://postgres:scp_password_2024@scp-db:5432/school_compliance
       - JWT_SECRET=prod_secret_keep_it_safe
-      - PORT=4000
-      - FRONTEND_URL=http://localhost:8091
+      - APP_PORT=4000
+      - FRONTEND_URL=http://76.13.177.120:8091
+      - CORS_ORIGINS=http://76.13.177.120:8091
       - DB_SYNC=true
       - ADMIN_EMAIL=admin@schoolcompliance.com
       - ADMIN_PASSWORD=Admin@123
