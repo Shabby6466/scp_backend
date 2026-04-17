@@ -4,6 +4,7 @@ import {
   InternalServerErrorException,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
   Inject,
   forwardRef,
 } from '@nestjs/common';
@@ -145,6 +146,12 @@ export class DocumentService {
       dto.fileName,
     );
 
+    if (!this.storage.isConfigured()) {
+      throw new ServiceUnavailableException(
+        'File storage is not configured. Use Supabase (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, optional SUPABASE_BUCKET) or set STORAGE_PROVIDER=s3 with S3_BUCKET_NAME, AWS_REGION, AWS_ACCESS_KEY_ID, and AWS_SECRET_ACCESS_KEY.',
+      );
+    }
+
     try {
       const { uploadUrl, uploadToken } =
         await this.storage.createPresignedUploadUrl(s3Key, dto.mimeType);
@@ -241,8 +248,9 @@ export class DocumentService {
   async searchDocuments(dto: SearchDocumentDto, user: CurrentUser) {
     const qb = this.documentRepository.createQueryBuilder('doc')
       .leftJoinAndSelect('doc.documentType', 'documentType')
+      .leftJoinAndSelect('documentType.category', 'category')
       .leftJoinAndSelect('doc.ownerUser', 'ownerUser')
-      .leftJoin('doc.studentProfile', 'studentProfile')
+      .leftJoinAndSelect('doc.studentProfile', 'studentProfile')
       .leftJoin(
         StudentParent,
         'spParent',
@@ -684,6 +692,12 @@ export class DocumentService {
       user,
       doc.studentProfileId,
     );
+
+    if (!this.storage.isConfigured()) {
+      throw new ServiceUnavailableException(
+        'File storage is not configured. Use Supabase (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, optional SUPABASE_BUCKET) or set STORAGE_PROVIDER=s3 with S3_BUCKET_NAME, AWS_REGION, AWS_ACCESS_KEY_ID, and AWS_SECRET_ACCESS_KEY.',
+      );
+    }
 
     return this.storage.createPresignedDownloadUrl(doc.s3Key);
   }

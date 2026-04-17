@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsString,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 import { UserRole } from '../../common/enums/database.enum';
 
@@ -60,6 +61,19 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   phone?: string | null;
+
+  @ApiPropertyOptional({
+    example: 'TempPass123!',
+    description:
+      'Manual account mode: set an initial password now instead of OTP invite',
+  })
+  @ValidateIf(
+    (o: CreateUserDto) =>
+      typeof o.password === 'string' && o.password.length > 0,
+  )
+  @IsString()
+  @MinLength(8, { message: 'Password must be at least 8 characters' })
+  password?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

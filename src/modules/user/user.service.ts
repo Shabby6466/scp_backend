@@ -169,13 +169,20 @@ export class UserService {
     }
 
     const { otpEmailVerificationEnabled } = await this.settings.getPublic();
+    const passwordInput = dto.password?.trim();
+    const manualPasswordHash =
+      passwordInput && passwordInput.length > 0
+        ? await bcrypt.hash(passwordInput, 12)
+        : undefined;
     const skipInviteEmail =
-      dto.role !== UserRole.ADMIN && !otpEmailVerificationEnabled;
+      dto.role !== UserRole.ADMIN &&
+      (!otpEmailVerificationEnabled || !!manualPasswordHash);
 
     const user = this.userRepository.create({
       email,
       name: displayName,
       phone: dto.phone?.trim() ? dto.phone.trim() : null,
+      ...(manualPasswordHash ? { password: manualPasswordHash } : {}),
       role: dto.role,
       schoolId:
         dto.role === UserRole.DIRECTOR ||
@@ -217,7 +224,11 @@ export class UserService {
       },
     });
 
-    if (dto.role !== UserRole.ADMIN && otpEmailVerificationEnabled) {
+    if (
+      dto.role !== UserRole.ADMIN &&
+      otpEmailVerificationEnabled &&
+      !manualPasswordHash
+    ) {
       await this.auth.sendInviteOtp(email, currentUser.name ?? undefined);
     }
 

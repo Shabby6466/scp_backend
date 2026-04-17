@@ -9,21 +9,38 @@ import { S3StorageDriver } from './s3-storage.driver';
 import { SupabaseStorageDriver } from './supabase-storage.driver';
 
 /**
- * Object storage facade. Default provider is **Supabase Storage** (`STORAGE_PROVIDER=supabase`).
- * Set `STORAGE_PROVIDER=s3` and configure `AWS_*` / `S3_BUCKET_NAME` to use S3 instead.
+ * Object storage facade.
+ * - `STORAGE_PROVIDER=supabase` — Supabase Storage only.
+ * - `STORAGE_PROVIDER=s3` — AWS S3 only.
+ * - `STORAGE_PROVIDER=auto` or unset — use Supabase if configured, else S3 if configured, else Supabase (will report not configured until env is set).
  */
 @Injectable()
 export class StorageService {
   private readonly driver: StorageDriver;
 
   constructor(private readonly config: ConfigService) {
-    const provider = (
-      this.config.get<string>('STORAGE_PROVIDER') ?? 'supabase'
-    ).toLowerCase();
-    this.driver =
-      provider === 's3'
-        ? new S3StorageDriver(this.config)
-        : new SupabaseStorageDriver(this.config);
+    const provider = (this.config.get<string>('STORAGE_PROVIDER') ?? 'auto')
+      .trim()
+      .toLowerCase();
+
+    if (provider === 's3') {
+      this.driver = new S3StorageDriver(this.config);
+      return;
+    }
+    if (provider === 'supabase') {
+      this.driver = new SupabaseStorageDriver(this.config);
+      return;
+    }
+
+    const supa = new SupabaseStorageDriver(this.config);
+    const s3 = new S3StorageDriver(this.config);
+    if (supa.isConfigured()) {
+      this.driver = supa;
+    } else if (s3.isConfigured()) {
+      this.driver = s3;
+    } else {
+      this.driver = supa;
+    }
   }
 
   /** Same logical key shape for every provider (stored in `Document.s3Key`). */
