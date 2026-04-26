@@ -10,6 +10,11 @@ export class ComplianceRequirement extends BaseEntity {
   @Index()
   schoolId!: string;
 
+  /** Optional branch scope for branch-specific requirements. */
+  @Column({ name: 'branch_id', nullable: true, type: 'uuid' })
+  @Index()
+  branchId!: string | null;
+
   @Column({ name: 'name', type: 'varchar' })
   name!: string;
 

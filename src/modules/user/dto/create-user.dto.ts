@@ -94,4 +94,36 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   employment_status?: string | null;
+
+  /** Required when `role` is STUDENT (YYYY-MM-DD). */
+  @ApiPropertyOptional({ example: '2018-05-01' })
+  @IsOptional()
+  @IsString()
+  date_of_birth?: string;
+
+  @ApiPropertyOptional({ description: 'snake_case alias' })
+  @IsOptional()
+  @IsString()
+  dateOfBirth?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  grade_level?: string | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  gradeLevel?: string | null;
+
+  /** When creating a student, optionally link to this parent user (PARENT role). */
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  parent_id?: string | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  parentId?: string | null;
 }

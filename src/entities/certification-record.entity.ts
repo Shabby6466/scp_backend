@@ -9,6 +9,11 @@ export class CertificationRecord extends BaseEntity {
   @Index()
   schoolId!: string;
 
+  /** Optional branch scope for branch-level certification tracking. */
+  @Column({ name: 'branch_id', nullable: true, type: 'uuid' })
+  @Index()
+  branchId!: string | null;
+
   @Column({ name: 'certification_type_id', type: 'uuid' })
   @Index()
   certificationTypeId!: string;

@@ -434,7 +434,7 @@ export class SchoolService {
     user: { role: UserRole; schoolId: string | null; branchId: string | null },
   ) {
     await this.findOne(id, user);
-    return this.complianceRequirementService.findBySchool(id);
+    return this.complianceRequirementService.findBySchool(id, user);
   }
 
   async listInspectionTypes(
@@ -442,7 +442,7 @@ export class SchoolService {
     user: { role: UserRole; schoolId: string | null; branchId: string | null },
   ) {
     await this.findOne(id, user);
-    return this.inspectionTypeService.findBySchool(id);
+    return this.inspectionTypeService.findBySchool(id, user);
   }
 
   async listCertificationRecords(
@@ -450,7 +450,7 @@ export class SchoolService {
     user: { role: UserRole; schoolId: string | null; branchId: string | null },
   ) {
     await this.findOne(id, user);
-    return this.certificationRecordService.findBySchool(id);
+    return this.certificationRecordService.findBySchool(id, user);
   }
 
   async approve(id: string) {
@@ -464,39 +464,105 @@ export class SchoolService {
     return this.schoolRepository.save(school);
   }
 
-  async createInspectionType(schoolId: string, body: any, actorUserId?: string) {
+  async createInspectionType(
+    schoolId: string,
+    body: any,
+    user: { role: UserRole; schoolId: string | null },
+    actorUserId: string,
+  ) {
+    await this.findOne(schoolId, user);
     return this.inspectionTypeService.create(schoolId, body, actorUserId);
   }
 
-  async updateInspectionType(id: string, body: any, actorUserId?: string) {
-    return this.inspectionTypeService.update(id, body, actorUserId);
+  async updateInspectionType(
+    schoolId: string,
+    inspectionTypeId: string,
+    body: any,
+    user: { role: UserRole; schoolId: string | null },
+    actorUserId: string,
+  ) {
+    await this.findOne(schoolId, user);
+    return this.inspectionTypeService.updateForSchool(
+      schoolId,
+      inspectionTypeId,
+      body,
+      actorUserId,
+    );
   }
 
-  async removeInspectionType(id: string) {
-    return this.inspectionTypeService.remove(id);
+  async removeInspectionType(
+    schoolId: string,
+    inspectionTypeId: string,
+    user: { role: UserRole; schoolId: string | null },
+  ) {
+    await this.findOne(schoolId, user);
+    return this.inspectionTypeService.removeForSchool(schoolId, inspectionTypeId);
   }
 
-  async createComplianceRequirement(schoolId: string, body: any) {
+  async createComplianceRequirement(
+    schoolId: string,
+    body: any,
+    user: { role: UserRole; schoolId: string | null },
+  ) {
+    await this.findOne(schoolId, user);
     return this.complianceRequirementService.create(schoolId, body);
   }
 
-  async updateComplianceRequirement(id: string, body: any) {
-    return this.complianceRequirementService.update(id, body);
+  async updateComplianceRequirement(
+    schoolId: string,
+    requirementId: string,
+    body: any,
+    user: { role: UserRole; schoolId: string | null },
+  ) {
+    await this.findOne(schoolId, user);
+    return this.complianceRequirementService.updateForSchool(
+      schoolId,
+      requirementId,
+      body,
+    );
   }
 
-  async removeComplianceRequirement(id: string) {
-    return this.complianceRequirementService.remove(id);
+  async removeComplianceRequirement(
+    schoolId: string,
+    requirementId: string,
+    user: { role: UserRole; schoolId: string | null },
+  ) {
+    await this.findOne(schoolId, user);
+    return this.complianceRequirementService.removeForSchool(
+      schoolId,
+      requirementId,
+    );
   }
 
-  async createCertificationRecord(schoolId: string, body: any) {
+  async createCertificationRecord(
+    schoolId: string,
+    body: any,
+    user: { role: UserRole; schoolId: string | null },
+  ) {
+    await this.findOne(schoolId, user);
     return this.certificationRecordService.create(schoolId, body);
   }
 
-  async updateCertificationRecord(id: string, body: any) {
-    return this.certificationRecordService.update(id, body);
+  async updateCertificationRecord(
+    schoolId: string,
+    recordId: string,
+    body: any,
+    user: { role: UserRole; schoolId: string | null },
+  ) {
+    await this.findOne(schoolId, user);
+    return this.certificationRecordService.updateForSchool(
+      schoolId,
+      recordId,
+      body,
+    );
   }
 
-  async removeCertificationRecord(id: string) {
-    return this.certificationRecordService.remove(id);
+  async removeCertificationRecord(
+    schoolId: string,
+    recordId: string,
+    user: { role: UserRole; schoolId: string | null },
+  ) {
+    await this.findOne(schoolId, user);
+    return this.certificationRecordService.removeForSchool(schoolId, recordId);
   }
 }

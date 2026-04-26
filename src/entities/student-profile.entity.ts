@@ -1,7 +1,8 @@
-import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, Index, OneToOne } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { School } from './school.entity';
 import { Branch } from './branch.entity';
+import { User } from './user.entity';
 
 @Entity('StudentProfile')
 export class StudentProfile extends BaseEntity {
@@ -36,6 +37,15 @@ export class StudentProfile extends BaseEntity {
   @Column({ name: 'branch_id', nullable: true, type: 'uuid' })
   @Index()
   branchId!: string | null;
+
+  /** Login account for this student (role STUDENT), when provisioned. */
+  @Column({ name: 'user_id', nullable: true, type: 'uuid', unique: true })
+  @Index()
+  userId!: string | null;
+
+  @OneToOne(() => User, { onDelete: 'CASCADE', nullable: true })
+  @JoinColumn({ name: 'user_id' })
+  user!: User | null;
 
   @ManyToOne(() => School, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'school_id' })

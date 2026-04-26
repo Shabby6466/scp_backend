@@ -12,6 +12,8 @@ import { Repository, Not, IsNull, In } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { User } from '../../entities/user.entity';
 import { TeacherProfile } from '../../entities/teacher-profile.entity';
+import { StudentProfile } from '../../entities/student-profile.entity';
+import { StudentParent } from '../../entities/student-parent.entity';
 import { AuthService } from '../auth/auth.service';
 import { SettingsService } from '../settings/settings.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -32,6 +34,10 @@ export class UserService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(TeacherProfile)
     private readonly teacherProfileRepository: Repository<TeacherProfile>,
+    @InjectRepository(StudentProfile)
+    private readonly studentProfileRepository: Repository<StudentProfile>,
+    @InjectRepository(StudentParent)
+    private readonly studentParentRepository: Repository<StudentParent>,
     @Inject(forwardRef(() => SchoolService))
     private readonly schoolService: SchoolService,
     @Inject(forwardRef(() => BranchService))
@@ -52,12 +58,6 @@ export class UserService {
     },
   ) {
     this.validateCreatePermission(dto, currentUser);
-
-    if (dto.role === UserRole.STUDENT) {
-      throw new BadRequestException(
-        'Students are not login users. Add enrollments via parent registration, invitations, or student profiles.',
-      );
-    }
 
     const email = dto.email.toLowerCase().trim();
     const existing = await this.userRepository.findOne({
@@ -132,18 +132,18 @@ export class UserService {
       (isSchoolDirector(currentUser) ||
         currentUser.role === UserRole.DIRECTOR) &&
       branchId &&
-      dto.role === UserRole.TEACHER
+      (dto.role === UserRole.TEACHER || dto.role === UserRole.STUDENT)
     ) {
       await this.assertBranchInSchool(branchId, currentUser.schoolId!);
     }
 
     if (
       currentUser.role === UserRole.BRANCH_DIRECTOR &&
-      dto.role === UserRole.TEACHER
+      (dto.role === UserRole.TEACHER || dto.role === UserRole.STUDENT)
     ) {
       if (!branchId || branchId !== currentUser.branchId) {
         throw new ForbiddenException(
-          'Teachers must be created for your branch only',
+          'Teachers and students must be created for your branch only',
         );
       }
     }
@@ -151,7 +151,9 @@ export class UserService {
     let resolvedSchoolId: string | null = schoolId;
     let resolvedBranchId: string | null = branchId;
     if (
-      (dto.role === UserRole.TEACHER || dto.role === UserRole.PARENT) &&
+      (dto.role === UserRole.TEACHER ||
+        dto.role === UserRole.PARENT ||
+        dto.role === UserRole.STUDENT) &&
       branchId
     ) {
       const b = await this.branchService.findOneById(branchId);
@@ -161,7 +163,9 @@ export class UserService {
       resolvedSchoolId = b.schoolId;
       resolvedBranchId = branchId;
     } else if (
-      (dto.role === UserRole.TEACHER || dto.role === UserRole.PARENT) &&
+      (dto.role === UserRole.TEACHER ||
+        dto.role === UserRole.PARENT ||
+        dto.role === UserRole.STUDENT) &&
       schoolId
     ) {
       resolvedSchoolId = schoolId;
@@ -188,13 +192,16 @@ export class UserService {
         dto.role === UserRole.DIRECTOR ||
           dto.role === UserRole.BRANCH_DIRECTOR
           ? (schoolId ?? null)
-          : dto.role === UserRole.TEACHER || dto.role === UserRole.PARENT
+          : dto.role === UserRole.TEACHER ||
+              dto.role === UserRole.PARENT ||
+              dto.role === UserRole.STUDENT
             ? resolvedSchoolId
             : null,
       branchId:
         dto.role === UserRole.TEACHER ||
           dto.role === UserRole.BRANCH_DIRECTOR ||
-          dto.role === UserRole.PARENT
+          dto.role === UserRole.PARENT ||
+          dto.role === UserRole.STUDENT
           ? resolvedBranchId
           : null,
       staffPosition: null,
@@ -206,6 +213,19 @@ export class UserService {
 
     if (dto.role === UserRole.TEACHER) {
       await this.applyTeacherProfileFromCreateDto(user.id, dto);
+    }
+
+    if (dto.role === UserRole.STUDENT) {
+      if (!resolvedSchoolId) {
+        throw new BadRequestException('schoolId is required for students');
+      }
+      await this.ensureStudentProfileAndParentLink(
+        user.id,
+        dto,
+        resolvedSchoolId,
+        resolvedBranchId,
+        currentUser,
+      );
     }
 
     const result = await this.userRepository.findOne({
@@ -1061,18 +1081,31 @@ export class UserService {
       if (
         dto.role !== UserRole.TEACHER &&
         dto.role !== UserRole.BRANCH_DIRECTOR &&
-        dto.role !== UserRole.PARENT
+        dto.role !== UserRole.PARENT &&
+        dto.role !== UserRole.STUDENT
       ) {
         throw new ForbiddenException(
-          'You can only create teachers, branch directors, or parents for your school',
+          'You can only create teachers, branch directors, parents, or students for your school',
         );
       }
       return;
     }
     if (currentUser.role === UserRole.BRANCH_DIRECTOR) {
-      if (dto.role !== UserRole.TEACHER && dto.role !== UserRole.PARENT) {
+      if (
+        dto.role !== UserRole.TEACHER &&
+        dto.role !== UserRole.PARENT &&
+        dto.role !== UserRole.STUDENT
+      ) {
         throw new ForbiddenException(
-          'You can only create teachers or parents for your branch',
+          'You can only create teachers, parents, or students for your branch',
+        );
+      }
+      return;
+    }
+    if (currentUser.role === UserRole.PARENT) {
+      if (dto.role !== UserRole.STUDENT) {
+        throw new ForbiddenException(
+          'Parents can only create student logins for their children',
         );
       }
       return;
@@ -1180,6 +1213,75 @@ export class UserService {
     await this.teacherProfileRepository.save(profile);
   }
 
+  private async ensureStudentProfileAndParentLink(
+    userId: string,
+    dto: CreateUserDto,
+    schoolId: string,
+    branchId: string | null,
+    currentUser?: { id: string; role: UserRole },
+  ) {
+    const dobRaw = dto.date_of_birth ?? dto.dateOfBirth;
+    if (!dobRaw?.trim()) {
+      throw new BadRequestException('date_of_birth is required for students');
+    }
+    const dob = new Date(`${dobRaw.trim()}T12:00:00.000Z`);
+    if (Number.isNaN(dob.getTime())) {
+      throw new BadRequestException('Invalid date_of_birth');
+    }
+    const gradeRaw = dto.grade_level ?? dto.gradeLevel;
+    const grade =
+      gradeRaw === undefined || gradeRaw === null
+        ? null
+        : String(gradeRaw).trim() || null;
+    const fn = (dto.first_name ?? '').trim();
+    const ln = (dto.last_name ?? '').trim();
+    const dup = await this.studentProfileRepository.findOne({
+      where: { userId },
+    });
+    if (dup) {
+      return;
+    }
+    const profile = this.studentProfileRepository.create({
+      userId,
+      firstName: fn || null,
+      lastName: ln || null,
+      dateOfBirth: dob,
+      gradeLevel: grade,
+      schoolId,
+      branchId,
+    });
+    await this.studentProfileRepository.save(profile);
+
+    let parentRaw = dto.parent_id ?? dto.parentId;
+    if (currentUser?.role === UserRole.PARENT) {
+      parentRaw = currentUser.id;
+    }
+    const parentId = this.normalizeUuidField(parentRaw);
+    if (!parentId) {
+      return;
+    }
+    const parent = await this.userRepository.findOne({ where: { id: parentId } });
+    if (!parent || parent.role !== UserRole.PARENT) {
+      throw new BadRequestException('parent_id must reference a parent user');
+    }
+    if (parent.schoolId && parent.schoolId !== schoolId) {
+      throw new BadRequestException('Parent must belong to the same school');
+    }
+    const existingLink = await this.studentParentRepository.findOne({
+      where: { studentProfileId: profile.id, parentId },
+    });
+    if (!existingLink) {
+      await this.studentParentRepository.save(
+        this.studentParentRepository.create({
+          studentProfileId: profile.id,
+          parentId,
+          relation: 'parent',
+          isPrimary: true,
+        }),
+      );
+    }
+  }
+
   private parseOptionalRole(
     role: string | null | undefined,
   ): UserRole | undefined {
@@ -1227,6 +1329,9 @@ export class UserService {
       if (dto.role === UserRole.PARENT) {
         return { schoolId: sId, branchId: bId };
       }
+      if (dto.role === UserRole.STUDENT) {
+        return { schoolId: sId, branchId: bId };
+      }
       return { schoolId: null, branchId: null };
     }
     if (currentUser.role === UserRole.DIRECTOR) {
@@ -1242,6 +1347,9 @@ export class UserService {
       if (dto.role === UserRole.PARENT) {
         return { schoolId: currentUser.schoolId, branchId: bId };
       }
+      if (dto.role === UserRole.TEACHER || dto.role === UserRole.STUDENT) {
+        return { schoolId: currentUser.schoolId, branchId: bId };
+      }
       return { schoolId: null, branchId: bId };
     }
     if (currentUser.role === UserRole.BRANCH_DIRECTOR) {
@@ -1249,6 +1357,20 @@ export class UserService {
         throw new ForbiddenException('Your account is not linked to a branch');
       }
       return { schoolId: currentUser.schoolId, branchId: currentUser.branchId };
+    }
+    if (currentUser.role === UserRole.PARENT) {
+      if (dto.role !== UserRole.STUDENT) {
+        throw new ForbiddenException(
+          'Parents can only create student accounts for their children',
+        );
+      }
+      if (!currentUser.schoolId) {
+        throw new ForbiddenException('Your account is not linked to a school');
+      }
+      return {
+        schoolId: currentUser.schoolId,
+        branchId: currentUser.branchId ?? null,
+      };
     }
     throw new ForbiddenException('Insufficient permissions');
   }

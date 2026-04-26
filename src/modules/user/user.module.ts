@@ -8,11 +8,20 @@ import { SettingsModule } from '../settings/settings.module';
 import { SchoolModule } from '../school/school.module';
 import { BranchModule } from '../branch/branch.module';
 import { TeacherProfile } from '../../entities/teacher-profile.entity';
+import { TeacherPosition } from '../../entities/teacher-position.entity';
+import { StudentProfile } from '../../entities/student-profile.entity';
+import { StudentParent } from '../../entities/student-parent.entity';
 import { TeacherController } from './teacher.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, TeacherProfile]),
+    TypeOrmModule.forFeature([
+      User,
+      TeacherProfile,
+      TeacherPosition,
+      StudentProfile,
+      StudentParent,
+    ]),
     forwardRef(() => AuthModule),
     forwardRef(() => SchoolModule),
     forwardRef(() => BranchModule),
