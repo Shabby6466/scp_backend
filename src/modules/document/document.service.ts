@@ -135,7 +135,11 @@ export class DocumentService {
       dto.studentProfileId,
     );
 
-    await this.documentTypeService.findOneInternal(dto.documentTypeId);
+    const docType = await this.documentTypeService.findOneInternal(
+      dto.documentTypeId,
+    );
+    if (!docType) throw new NotFoundException('Document type not found');
+    this.assertDocumentTypeMatchesEntityScope(docType, { schoolId, branchId });
 
     const subjectEntityId = dto.studentProfileId ?? dto.ownerUserId;
     const s3Key = this.storage.buildDocumentKey(
@@ -176,6 +180,7 @@ export class DocumentService {
 
     const docType = await this.documentTypeService.findOneInternal(dto.documentTypeId);
     if (!docType) throw new NotFoundException('Document type not found');
+    this.assertDocumentTypeMatchesEntityScope(docType, { schoolId, branchId });
 
     let issuedAt: Date | null = null;
     if (dto.issuedAt?.trim()) {
@@ -531,6 +536,17 @@ export class DocumentService {
     };
   }
 
+  async deleteDocument(documentId: string, user: CurrentUser) {
+    const doc = await this.findDocumentById(documentId, user);
+    await this.documentRepository.delete({ id: doc.id });
+    return { success: true, id: doc.id };
+  }
+
+  /** Review alias: marks document verified when permitted (same rules as verify). */
+  async reviewDocument(documentId: string, user: CurrentUser) {
+    return this.verify(documentId, user);
+  }
+
   async verify(documentId: string, user: CurrentUser) {
     const doc = await this.documentRepository.findOne({
       where: { id: documentId },
@@ -741,6 +757,22 @@ export class DocumentService {
     });
     const fileName = `document-${ownerUserId}-${documentTypeId}.pdf`;
     return { buffer, fileName };
+  }
+
+  private assertDocumentTypeMatchesEntityScope(
+    docType: { schoolId: string | null; branchId: string | null },
+    scope: EntityScope,
+  ) {
+    if (docType.schoolId != null && docType.schoolId !== scope.schoolId) {
+      throw new ForbiddenException(
+        'Document type does not apply to this school',
+      );
+    }
+    if (docType.branchId != null && docType.branchId !== scope.branchId) {
+      throw new ForbiddenException(
+        'Document type does not apply to this branch',
+      );
+    }
   }
 
   private async resolveOwnerScope(
@@ -1129,6 +1161,84 @@ export class DocumentService {
       );
     }
     return qb.getMany();
+  }
+
+  /**
+   * Documents eligible for a manual expiration reminder tier (non-overlapping windows).
+   * - 30d: expires in (now+7d, now+30d]
+   * - 7d: expires in (now, now+7d]
+   * - expired: expiresAt < now
+   */
+  async findReminderCandidates(
+    scope: { schoolId?: string; branchId?: string },
+    tier: '30d' | '7d' | 'expired',
+    now: Date,
+    limit: number,
+  ) {
+    const after7 = new Date(now);
+    after7.setDate(after7.getDate() + 7);
+    const until30 = new Date(now);
+    until30.setDate(until30.getDate() + 30);
+
+    const qb = this.documentRepository
+      .createQueryBuilder('d')
+      .innerJoinAndSelect('d.documentType', 'dt')
+      .leftJoinAndSelect('d.ownerUser', 'owner')
+      .leftJoinAndSelect('d.studentProfile', 'sp')
+      .leftJoin('owner.branch', 'ob')
+      .leftJoin('sp.branch', 'sb')
+      .where('d.expiresAt IS NOT NULL')
+      .orderBy('d.expiresAt', tier === 'expired' ? 'DESC' : 'ASC')
+      .take(limit);
+
+    if (tier === 'expired') {
+      qb.andWhere('d.expiresAt < :now', { now });
+    } else if (tier === '7d') {
+      qb.andWhere('d.expiresAt > :now AND d.expiresAt <= :until7', {
+        now,
+        until7: after7,
+      });
+    } else {
+      qb.andWhere('d.expiresAt > :after7 AND d.expiresAt <= :until30', {
+        after7,
+        until30,
+      });
+    }
+
+    if (scope.branchId) {
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('owner.branchId = :branchId', {
+            branchId: scope.branchId,
+          }).orWhere('sp.branchId = :branchId', { branchId: scope.branchId });
+        }),
+      );
+    } else if (scope.schoolId) {
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('ob.schoolId = :schoolId', { schoolId: scope.schoolId }).orWhere(
+            'sb.schoolId = :schoolId',
+            { schoolId: scope.schoolId },
+          );
+        }),
+      );
+    }
+
+    return qb.getMany();
+  }
+
+  async markReminderSent(
+    documentId: string,
+    tier: '30d' | '7d' | 'expired',
+    at: Date,
+  ): Promise<void> {
+    const patch =
+      tier === '30d'
+        ? { reminder30dSentAt: at }
+        : tier === '7d'
+          ? { reminder7dSentAt: at }
+          : { reminderExpiredSentAt: at };
+    await this.documentRepository.update({ id: documentId }, patch);
   }
 
   async findRecentUnverifiedInScope(scope: { schoolId?: string; branchId?: string }, limit: number) {

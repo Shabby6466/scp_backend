@@ -121,6 +121,15 @@ export class Document extends BaseEntity {
   @Column({ name: 'verified_at', type: 'timestamp', nullable: true })
   verifiedAt!: Date | null;
 
+  @Column({ name: 'reminder_30d_sent_at', type: 'timestamp', nullable: true })
+  reminder30dSentAt!: Date | null;
+
+  @Column({ name: 'reminder_7d_sent_at', type: 'timestamp', nullable: true })
+  reminder7dSentAt!: Date | null;
+
+  @Column({ name: 'reminder_expired_sent_at', type: 'timestamp', nullable: true })
+  reminderExpiredSentAt!: Date | null;
+
   @Column({
     name: 'uploaded_by_user_id',
     type: 'uuid'

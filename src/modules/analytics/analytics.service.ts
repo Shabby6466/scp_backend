@@ -453,7 +453,7 @@ export class AnalyticsService {
     };
   }
 
-  private assertSchoolScope(
+  assertSchoolScope(
     user: CurrentUser,
     schoolId?: string,
     branchId?: string,
@@ -489,6 +489,24 @@ export class AnalyticsService {
       throw new ForbiddenException('School scope required');
     }
     throw new ForbiddenException('Insufficient permissions');
+  }
+
+  /**
+   * Document list scope for reminder sends. Platform admin may omit school/branch for a global sweep
+   * (`/reminders/send` only); school routes must supply `schoolId` or `branchId`.
+   */
+  resolveReminderDocumentScope(
+    user: CurrentUser,
+    schoolId?: string,
+    branchId?: string,
+    opts: { allowAdminGlobal?: boolean } = {},
+  ): { schoolId?: string; branchId?: string } {
+    const s = schoolId?.trim() || undefined;
+    const b = branchId?.trim() || undefined;
+    if (opts.allowAdminGlobal && user.role === UserRole.ADMIN && !s && !b) {
+      return {};
+    }
+    return this.assertSchoolScope(user, schoolId, branchId);
   }
 
   /**

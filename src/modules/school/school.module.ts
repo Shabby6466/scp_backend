@@ -7,6 +7,7 @@ import { InspectionType } from '../../entities/inspection-type.entity';
 import { ComplianceRequirement } from '../../entities/compliance-requirement.entity';
 import { CertificationRecord } from '../../entities/certification-record.entity';
 import { CertificationType } from '../../entities/certification-type.entity';
+import { Branch } from '../../entities/branch.entity';
 import { InspectionTypeService } from './inspection-type.service';
 import { ComplianceRequirementService } from './compliance-requirement.service';
 import { CertificationRecordService } from './certification-record.service';
@@ -23,6 +24,7 @@ import { ComplianceCategoryModule } from '../compliance-category/compliance-cate
       ComplianceRequirement,
       CertificationRecord,
       CertificationType,
+      Branch,
     ]),
     forwardRef(() => UserModule),
     forwardRef(() => BranchModule),

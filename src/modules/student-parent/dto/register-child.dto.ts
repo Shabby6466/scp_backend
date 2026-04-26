@@ -1,7 +1,31 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class RegisterChildDto {
+  @ApiProperty({
+    example: 'emma.smith@example.com',
+    description: 'Login email for the child student account',
+  })
+  @IsEmail()
+  childEmail!: string;
+
+  @ApiPropertyOptional({
+    example: 'TempPass123!',
+    description:
+      'Optional initial password; if omitted, invite/OTP flow applies when enabled',
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(8, { message: 'Password must be at least 8 characters' })
+  password?: string;
+
   @ApiProperty({ example: 'Emma' })
   @IsString()
   @MinLength(1)

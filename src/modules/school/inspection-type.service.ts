@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Brackets, Repository } from 'typeorm';
 import { InspectionType } from '../../entities/inspection-type.entity';
-import { InspectionCategory } from '../common/enums/database.enum';
+import { Branch } from '../../entities/branch.entity';
+import { InspectionCategory, UserRole } from '../common/enums/database.enum';
 import { ComplianceCategoryService } from '../compliance-category/compliance-category.service';
 
 function parseCategory(raw: unknown): InspectionCategory {
@@ -23,15 +24,43 @@ export class InspectionTypeService {
   constructor(
     @InjectRepository(InspectionType)
     private readonly repository: Repository<InspectionType>,
+    @InjectRepository(Branch)
+    private readonly branchRepository: Repository<Branch>,
     private readonly complianceCategoryService: ComplianceCategoryService,
   ) { }
 
-  async findBySchool(schoolId: string) {
-    return this.repository.find({
-      where: { schoolId },
-      order: { name: 'ASC' },
-      relations: ['complianceCategory'],
-    });
+  private async assertBranchInSchool(
+    branchId: string | null | undefined,
+    schoolId: string,
+  ): Promise<void> {
+    if (branchId == null || branchId === '') return;
+    const b = await this.branchRepository.findOne({ where: { id: branchId } });
+    if (!b || b.schoolId !== schoolId) {
+      throw new BadRequestException('Branch must belong to the school');
+    }
+  }
+
+  async findBySchool(
+    schoolId: string,
+    viewer?: { role: UserRole; branchId: string | null },
+  ) {
+    const qb = this.repository
+      .createQueryBuilder('it')
+      .leftJoinAndSelect('it.complianceCategory', 'complianceCategory')
+      .where('it.schoolId = :schoolId', { schoolId })
+      .orderBy('it.name', 'ASC');
+
+    if (viewer?.role === UserRole.BRANCH_DIRECTOR && viewer.branchId) {
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('it.branchId IS NULL').orWhere('it.branchId = :bid', {
+            bid: viewer.branchId,
+          });
+        }),
+      );
+    }
+
+    return qb.getMany();
   }
 
   async findOne(id: string) {
@@ -89,6 +118,12 @@ export class InspectionTypeService {
   }
 
   async create(schoolId: string, body: any, actorUserId?: string) {
+    const rawBranch = body.branchId ?? body.branch_id ?? null;
+    const branchId =
+      rawBranch != null && String(rawBranch).trim() !== ''
+        ? String(rawBranch).trim()
+        : null;
+    await this.assertBranchInSchool(branchId, schoolId);
     const inspectionEnum = parseCategory(body.category);
     const complianceCategoryId = await this.resolveComplianceCategoryId(
       schoolId,
@@ -98,6 +133,7 @@ export class InspectionTypeService {
     );
     const row = this.repository.create({
       schoolId,
+      branchId,
       name: body.name?.trim(),
       description: body.description ?? null,
       frequency: body.frequency ?? null,
@@ -107,9 +143,23 @@ export class InspectionTypeService {
     return this.repository.save(row);
   }
 
-  async update(id: string, body: any, actorUserId?: string) {
-    const row = await this.repository.findOne({ where: { id } });
-    if (!row) return null;
+  async updateForSchool(
+    schoolId: string,
+    id: string,
+    body: any,
+    actorUserId?: string,
+  ) {
+    const row = await this.repository.findOne({ where: { id, schoolId } });
+    if (!row) {
+      throw new NotFoundException('Inspection type not found');
+    }
+    if (body.branchId !== undefined || body.branch_id !== undefined) {
+      const raw = body.branchId ?? body.branch_id ?? null;
+      const nextBranch =
+        raw != null && String(raw).trim() !== '' ? String(raw).trim() : null;
+      await this.assertBranchInSchool(nextBranch, schoolId);
+      row.branchId = nextBranch;
+    }
     if (body.name !== undefined) row.name = String(body.name).trim();
     if (body.description !== undefined) row.description = body.description ?? null;
     if (body.frequency !== undefined) row.frequency = body.frequency ?? null;
@@ -135,8 +185,11 @@ export class InspectionTypeService {
     return this.repository.save(row);
   }
 
-  async remove(id: string) {
-    await this.repository.delete(id);
+  async removeForSchool(schoolId: string, id: string) {
+    const res = await this.repository.delete({ id, schoolId });
+    if (!res.affected) {
+      throw new NotFoundException('Inspection type not found');
+    }
     return { success: true };
   }
 }

@@ -5,11 +5,16 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MailerSend, EmailParams, Sender, Recipient } from 'mailersend';
+import * as nodemailer from 'nodemailer';
+import type { Transporter } from 'nodemailer';
+
+export type ExpirationReminderTier = '30d' | '7d' | 'expired';
 
 @Injectable()
 export class MailerService {
   private readonly logger = new Logger(MailerService.name);
   private readonly client: MailerSend | null = null;
+  private readonly smtpTransporter: Transporter | null = null;
   private readonly fromEmail: string;
   private readonly fromName: string;
 
@@ -21,16 +26,44 @@ export class MailerService {
     this.fromName =
       this.config.get<string>('MAILERSEND_FROM_NAME') ?? 'School System';
 
-    if (apiKey) {
+    const transport = (
+      this.config.get<string>('MAIL_TRANSPORT') ?? 'api'
+    ).toLowerCase();
+
+    if (transport === 'smtp') {
+      const host = this.config.get<string>('SMTP_HOST');
+      const port = Number.parseInt(
+        this.config.get<string>('SMTP_PORT') ?? '587',
+        10,
+      );
+      const user = this.config.get<string>('SMTP_USER');
+      const pass = this.config.get<string>('SMTP_PASS');
+      const secure = this.config.get<string>('SMTP_SECURE') === 'true';
+      if (host && user && pass) {
+        this.smtpTransporter = nodemailer.createTransport({
+          host,
+          port,
+          secure,
+          auth: { user, pass },
+        });
+        this.logger.log(`Mailer: using SMTP transport (${host}:${port})`);
+      } else {
+        this.logger.warn(
+          'MAIL_TRANSPORT=smtp but SMTP_HOST / SMTP_USER / SMTP_PASS incomplete; falling back to API or log-only',
+        );
+      }
+    }
+
+    if (!this.smtpTransporter && apiKey) {
       this.client = new MailerSend({ apiKey });
-    } else {
+      this.logger.log('Mailer: using MailerSend HTTP API');
+    } else if (!this.smtpTransporter && !apiKey) {
       this.logger.warn(
-        'MAILERSEND_API_KEY not set; emails will be logged only',
+        'MAILERSEND_API_KEY not set and SMTP not configured; emails will be logged only',
       );
     }
   }
 
-  /** MailerSend rejects with a plain { headers, body, statusCode } — avoid bubbling that to Nest as an "exception". */
   private formatMailerSendError(err: unknown): string {
     if (err instanceof Error) return err.message;
     if (err && typeof err === 'object') {
@@ -51,15 +84,46 @@ export class MailerService {
 
   private async dispatchEmail(
     successLog: string,
-    send: (client: MailerSend) => Promise<unknown>,
     devFallback: () => void,
+    toEmail: string,
+    subject: string,
+    html: string,
+    text: string,
   ): Promise<void> {
+    if (this.smtpTransporter) {
+      try {
+        await this.smtpTransporter.sendMail({
+          from: `"${this.fromName}" <${this.fromEmail}>`,
+          to: toEmail,
+          subject,
+          html,
+          text,
+        });
+        this.logger.log(successLog);
+      } catch (err: unknown) {
+        const detail = err instanceof Error ? err.message : String(err);
+        this.logger.error(`SMTP send failed: ${detail}`);
+        throw new InternalServerErrorException(
+          'Email could not be sent. Check SMTP settings.',
+        );
+      }
+      return;
+    }
+
     if (!this.client) {
       devFallback();
       return;
     }
+
+    const emailParams = new EmailParams()
+      .setFrom(new Sender(this.fromEmail, this.fromName))
+      .setTo([new Recipient(toEmail, toEmail)])
+      .setSubject(subject)
+      .setHtml(html)
+      .setText(text);
+
     try {
-      await send(this.client);
+      await this.client.email.send(emailParams);
       this.logger.log(successLog);
     } catch (err: unknown) {
       const detail = this.formatMailerSendError(err);
@@ -78,17 +142,13 @@ export class MailerService {
     `;
     const text = `Your verification code is: ${code}. This code expires in 10 minutes.`;
 
-    const emailParams = new EmailParams()
-      .setFrom(new Sender(this.fromEmail, this.fromName))
-      .setTo([new Recipient(toEmail, toEmail)])
-      .setSubject(subject)
-      .setHtml(html)
-      .setText(text);
-
     await this.dispatchEmail(
       `Verification email sent to ${toEmail}`,
-      (client) => client.email.send(emailParams),
       () => this.logger.log(`[DEV] Verification code for ${toEmail}: ${code}`),
+      toEmail,
+      subject,
+      html,
+      text,
     );
   }
 
@@ -100,17 +160,13 @@ export class MailerService {
     `;
     const text = `Your one-time login code is: ${code}. This code expires in 10 minutes.`;
 
-    const emailParams = new EmailParams()
-      .setFrom(new Sender(this.fromEmail, this.fromName))
-      .setTo([new Recipient(toEmail, toEmail)])
-      .setSubject(subject)
-      .setHtml(html)
-      .setText(text);
-
     await this.dispatchEmail(
       `OTP email sent to ${toEmail}`,
-      (client) => client.email.send(emailParams),
       () => this.logger.log(`[DEV] OTP for ${toEmail}: ${code}`),
+      toEmail,
+      subject,
+      html,
+      text,
     );
   }
 
@@ -131,17 +187,13 @@ export class MailerService {
     `;
     const text = `You have been invited. Your verification code is: ${code}. Go to ${verifyUrl} to set your password. This code expires in 10 minutes.`;
 
-    const emailParams = new EmailParams()
-      .setFrom(new Sender(this.fromEmail, this.fromName))
-      .setTo([new Recipient(toEmail, toEmail)])
-      .setSubject(subject)
-      .setHtml(html)
-      .setText(text);
-
     await this.dispatchEmail(
       `Invite email sent to ${toEmail}`,
-      (client) => client.email.send(emailParams),
       () => this.logger.log(`[DEV] Invite OTP for ${toEmail}: ${code}`),
+      toEmail,
+      subject,
+      html,
+      text,
     );
   }
 
@@ -153,20 +205,16 @@ export class MailerService {
     const html = `<p>A new required document has been assigned: <strong>${documentTypeName}</strong></p>`;
     const text = `A new required document has been assigned: ${documentTypeName}`;
 
-    const emailParams = new EmailParams()
-      .setFrom(new Sender(this.fromEmail, this.fromName))
-      .setTo([new Recipient(toEmail, toEmail)])
-      .setSubject(subject)
-      .setHtml(html)
-      .setText(text);
-
     await this.dispatchEmail(
       `Document assignment email sent to ${toEmail}`,
-      (client) => client.email.send(emailParams),
       () =>
         this.logger.log(
           `[DEV] Document assigned for ${toEmail}: ${documentTypeName}`,
         ),
+      toEmail,
+      subject,
+      html,
+      text,
     );
   }
 
@@ -178,20 +226,16 @@ export class MailerService {
     const html = `<p>A document upload was completed for: <strong>${documentTypeName}</strong></p>`;
     const text = `A document upload was completed for: ${documentTypeName}`;
 
-    const emailParams = new EmailParams()
-      .setFrom(new Sender(this.fromEmail, this.fromName))
-      .setTo([new Recipient(toEmail, toEmail)])
-      .setSubject(subject)
-      .setHtml(html)
-      .setText(text);
-
     await this.dispatchEmail(
       `Document uploaded notification sent to ${toEmail}`,
-      (client) => client.email.send(emailParams),
       () =>
         this.logger.log(
           `[DEV] Document uploaded notice for ${toEmail}: ${documentTypeName}`,
         ),
+      toEmail,
+      subject,
+      html,
+      text,
     );
   }
 
@@ -204,20 +248,56 @@ export class MailerService {
     const html = `<p>Your document <strong>${documentTypeName}</strong> is due on <strong>${dueDate}</strong>.</p>`;
     const text = `Your document ${documentTypeName} is due on ${dueDate}.`;
 
-    const emailParams = new EmailParams()
-      .setFrom(new Sender(this.fromEmail, this.fromName))
-      .setTo([new Recipient(toEmail, toEmail)])
-      .setSubject(subject)
-      .setHtml(html)
-      .setText(text);
-
     await this.dispatchEmail(
       `Document due reminder sent to ${toEmail}`,
-      (client) => client.email.send(emailParams),
       () =>
         this.logger.log(
           `[DEV] Document due reminder for ${toEmail}: ${documentTypeName} due ${dueDate}`,
         ),
+      toEmail,
+      subject,
+      html,
+      text,
+    );
+  }
+
+  async sendDocumentExpirationReminder(
+    toEmail: string,
+    userName: string,
+    documentTypeName: string,
+    dueDateLabel: string,
+    tier: ExpirationReminderTier,
+  ): Promise<void> {
+    const tierLabel =
+      tier === '30d' ? '30-day' : tier === '7d' ? '7-day' : 'Expired';
+    const subject =
+      tier === 'expired'
+        ? `Action required: expired document — ${documentTypeName}`
+        : `Document expiration reminder (${tierLabel}) — ${documentTypeName}`;
+    const bodyIntro =
+      tier === 'expired'
+        ? `<p>Your document <strong>${documentTypeName}</strong> has expired (was due <strong>${dueDateLabel}</strong>).</p>`
+        : `<p>Your document <strong>${documentTypeName}</strong> expires on <strong>${dueDateLabel}</strong>.</p>`;
+    const html = `
+      <p>Hello ${userName},</p>
+      ${bodyIntro}
+      <p>Please log in to the School System portal to renew or replace this document.</p>
+    `;
+    const text =
+      tier === 'expired'
+        ? `Hello ${userName}, your document ${documentTypeName} has expired (was due ${dueDateLabel}). Please log in to the School System portal.`
+        : `Hello ${userName}, your document ${documentTypeName} expires on ${dueDateLabel}. Please log in to the School System portal.`;
+
+    await this.dispatchEmail(
+      `Expiration reminder (${tier}) sent to ${toEmail}`,
+      () =>
+        this.logger.log(
+          `[DEV] Expiration reminder (${tier}) for ${toEmail}: ${documentTypeName} ${dueDateLabel}`,
+        ),
+      toEmail,
+      subject,
+      html,
+      text,
     );
   }
 
@@ -234,20 +314,16 @@ export class MailerService {
     `;
     const text = `Hello ${userName}, this is a reminder that your document ${documentTypeName} requires your attention. Please log in to the School System portal.`;
 
-    const emailParams = new EmailParams()
-      .setFrom(new Sender(this.fromEmail, this.fromName))
-      .setTo([new Recipient(toEmail, toEmail)])
-      .setSubject(subject)
-      .setHtml(html)
-      .setText(text);
-
     await this.dispatchEmail(
       `Document action reminder sent to ${toEmail}`,
-      (client) => client.email.send(emailParams),
       () =>
         this.logger.log(
           `[DEV] Document nudge for ${toEmail}: ${documentTypeName}`,
         ),
+      toEmail,
+      subject,
+      html,
+      text,
     );
   }
 }

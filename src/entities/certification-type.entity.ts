@@ -10,6 +10,11 @@ export class CertificationType extends BaseEntity {
   @Index()
   schoolId!: string;
 
+  /** When set, this certification template applies only to that branch. */
+  @Column({ name: 'branch_id', nullable: true, type: 'uuid' })
+  @Index()
+  branchId!: string | null;
+
   @Column({ name: 'name',
       type: 'varchar'
 })

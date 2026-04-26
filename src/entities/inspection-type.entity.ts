@@ -13,6 +13,11 @@ export class InspectionType extends BaseEntity {
   @Index()
   schoolId!: string;
 
+  /** When set, this inspection program applies only to that branch (otherwise school-wide). */
+  @Column({ name: 'branch_id', nullable: true, type: 'uuid' })
+  @Index()
+  branchId!: string | null;
+
   @Column({ name: 'name',
       type: 'varchar'
 })

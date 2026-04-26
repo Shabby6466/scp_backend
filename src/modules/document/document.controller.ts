@@ -232,8 +232,7 @@ export class DocumentController {
       branchId: string | null;
     },
   ) {
-    // Placeholder: implement hard delete in DocumentService later if needed.
-    return { success: true, id };
+    return this.documentService.deleteDocument(id, user);
   }
 
   @Patch(':id/review')
@@ -242,8 +241,15 @@ export class DocumentController {
   review(
     @Param('id') id: string,
     @Body() _body: any,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
   ) {
-    return { success: true, id };
+    return this.documentService.reviewDocument(id, user);
   }
 
   @Post('scan')

@@ -15,6 +15,7 @@ import { StudentProfile } from '../../entities/student-profile.entity';
 import { Branch } from '../../entities/branch.entity';
 import { isSchoolDirector } from '../auth/school-scope.util';
 import { UserService } from '../user/user.service';
+import { CreateUserDto } from '../user/dto/create-user.dto';
 import type { RegisterChildDto } from './dto/register-child.dto';
 import { UpdateStudentProfileDto } from './dto/update-student-profile.dto';
 import { StudentProfileService } from './student-profile.service';
@@ -370,47 +371,60 @@ export class StudentParentService {
       throw new BadRequestException('Invalid dateOfBirth');
     }
 
-    return this.dataSource.transaction(async (manager) => {
-      const profile = manager.create(StudentProfile, {
-        firstName: first,
-        lastName: last,
-        dateOfBirth: dob,
-        gradeLevel: dto.gradeLevel?.trim() || null,
-        schoolId: parent.schoolId,
-        branchId: parent.branchId,
-      });
-      await manager.save(profile);
+    const createDto: CreateUserDto = {
+      email: dto.childEmail.trim().toLowerCase(),
+      first_name: first,
+      last_name: last,
+      role: UserRole.STUDENT,
+      school_id: parent.schoolId ?? undefined,
+      branch_id: parent.branchId ?? undefined,
+      date_of_birth: dto.dateOfBirth,
+      grade_level: dto.gradeLevel?.trim() || undefined,
+      parent_id: user.id,
+      ...(dto.password?.trim() ? { password: dto.password.trim() } : {}),
+    };
 
-      const link = manager.create(StudentParent, {
-        studentProfileId: profile.id,
-        parentId: user.id,
-        relation: 'parent',
-        isPrimary: true,
-      });
-      await manager.save(link);
-
-      return {
-        student: {
-          id: profile.id,
-          name,
-          email: null,
-          role: null,
-          schoolId: profile.schoolId,
-          branchId: profile.branchId,
-          studentProfile: {
-            firstName: profile.firstName,
-            lastName: profile.lastName,
-            dateOfBirth: profile.dateOfBirth?.toISOString() ?? null,
-            gradeLevel: profile.gradeLevel,
-          },
-        },
-        link: {
-          id: link.id,
-          studentId: link.studentProfileId,
-          parentId: link.parentId,
-        },
-      };
+    const createdUser = await this.userService.createUser(createDto, {
+      id: user.id,
+      role: UserRole.PARENT,
+      schoolId: user.schoolId,
+      branchId: user.branchId,
     });
+
+    const profile = await this.studentProfileRepository.findOne({
+      where: { userId: createdUser!.id },
+    });
+    if (!profile) {
+      throw new BadRequestException('Student profile was not created');
+    }
+
+    const link = await this.studentParentRepository.findOne({
+      where: { studentProfileId: profile.id, parentId: user.id },
+    });
+
+    return {
+      student: {
+        id: profile.id,
+        name,
+        email: createdUser!.email,
+        role: UserRole.STUDENT,
+        schoolId: profile.schoolId,
+        branchId: profile.branchId,
+        studentProfile: {
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          dateOfBirth: profile.dateOfBirth?.toISOString() ?? null,
+          gradeLevel: profile.gradeLevel,
+        },
+      },
+      link: link
+        ? {
+            id: link.id,
+            studentId: link.studentProfileId,
+            parentId: link.parentId,
+          }
+        : null,
+    };
   }
 
   async getStudentProfileById(profileId: string, user: JwtUser) {
